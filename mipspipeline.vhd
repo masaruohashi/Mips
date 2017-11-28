@@ -253,7 +253,7 @@ begin
   ad: aludec port map(funct, aluop, alucontrol);
   
   
-  -- é, basicamente, um mux para poder implementar o bne - branch on not equal
+  -- ï¿½, basicamente, um mux para poder implementar o bne - branch on not equal
   mux_zero <= zero when zerosrc = '0' else not zero; 
   
   pcsrc <= branch and mux_zero;
@@ -562,4 +562,100 @@ begin
   end process;
 
   zero <= '1' when result = X"00000000" else '0';
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
+entity mux3 is -- three-input multiplexer
+  generic(width: integer);
+  port(d0, d1, d2: in  STD_LOGIC_VECTOR(width-1 downto 0);
+       s:          in  STD_LOGIC_VECTOR(1 downto 0);
+       y:          out STD_LOGIC_VECTOR(width-1 downto 0));
+end;
+
+architecture behave of mux3 is
+begin
+  process(s) begin
+    case s is
+      when "00" => y <= d0;
+      when "01" => y <= d1;
+      when "10" => y <= d2;
+      when others => y <= (others => 'X');
+    end case;
+  end process;
+end;
+
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
+entity datafowarding is -- Data Fowarding unit
+  port(regaddr:              in  STD_LOGIC_VECTOR(4 downto 0);
+       writeRegM, writeRegW: in  STD_LOGIC_VECTOR(4 downto 0);
+       regWriteM, regWriteW: in  STD_LOGIC;
+       forward:              out STD_LOGIC_VECTOR(1 downto 0));
+end;
+
+architecture behave of datafowarding is
+begin
+  process(all) begin
+    if(regaddr /= "0000" and  regaddr = writeRegM and regWriteM = '1') then
+      forward <= "10";
+    elsif(regaddr /= "0000" and regaddr = writeRegW and regWriteW = '1') then
+      forward <= "01";
+    else
+      forward <= "00";
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
+entity hardwarestall is -- Hardware Stall unit
+  port(rsD, rtE, rtD: in  STD_LOGIC_VECTOR(4 downto 0);
+       memToRegE:     in  STD_LOGIC;
+       stall:         out STD_LOGIC);
+end;
+
+architecture behave of hardwarestall is
+begin
+  process(all) begin
+    if (memToRegE = '1') and ((rsD = rtE) or (rtD = rtE)) then
+      stall <= '1';
+    else
+      stall <= '0';
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
+entity hazardunit is
+  port(rsE, rtE, rsD, rtD:     in  STD_LOGIC_VECTOR(4 downto 0);
+       regWriteM, regWriteW:   in  STD_LOGIC;
+       writeRegM, writeRegW:   in  STD_LOGIC_VECTOR(4 downto 0);
+       memToRegE:              in  STD_LOGIC;
+       forwardAE, forwardBE:   out STD_LOGIC_VECTOR(1 downto 0);
+       stallF, stallD, flushE: out STD_LOGIC);
+end;
+
+architecture struct of hazardunit is
+  component datafowarding
+    port(regaddr:              in  STD_LOGIC_VECTOR(4 downto 0);
+         writeRegM, writeRegW: in  STD_LOGIC_VECTOR(4 downto 0);
+         regWriteM, regWriteW: in  STD_LOGIC;
+         forward:              out STD_LOGIC_VECTOR(1 downto 0));
+  end component;
+  component hardwarestall
+    port(rsD, rtE, rtD: in  STD_LOGIC_VECTOR(4 downto 0);
+         memToRegE:     in  STD_LOGIC;
+         stall:         out STD_LOGIC);
+  end component;
+  signal lwstall: STD_LOGIC;
+begin
+  forwardingA: datafowarding port map (rsE, writeRegM, writeRegW, regWriteM, regWriteW, forwardAE);
+  forwardingB: datafowarding port map (rtE, writeRegM, writeRegW, regWriteM, regWriteW, forwardBE);
+  stalling: hardwarestall port map (rsD, rtE, rtD, memToRegE, lwstall);
+  stallF <= lwstall;
+  stallD <= lwstall;
+  flushE <= lwstall;
 end;
