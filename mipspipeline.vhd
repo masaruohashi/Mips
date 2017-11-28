@@ -38,15 +38,15 @@ begin
   end process;
 
   -- check that 0xffff7f02 gets written to address 0x54(=84)  at end of program
-  process (clk) begin
-    if (clk'event and clk = '0' and memwrite = '1') then
-      if (to_integer(dataadr) = 84 and writedata = x"ffff7f02") then 
-        report "NO ERRORS: Simulation succeeded" severity failure;
-      else
-        report "Simulation failed" severity failure;
-      end if;
-    end if;
-  end process;
+ process (clk) begin
+   if (clk'event and clk = '0' and memwrite = '1') then
+     if (to_integer(dataadr) = 84 and writedata = x"ffff7f02") then
+       report "NO ERRORS: Simulation succeeded" severity failure;
+     elsif (dataadr /= 80) then
+       report "Simulation failed" severity failure;
+     end if;
+   end if;
+ end process;
 end;
 
 library IEEE; 
@@ -139,7 +139,7 @@ begin
       mem(i) := (others => '0'); 
     end loop;
     index := 0; 
-    FILE_OPEN(mem_file,"C:\Users\Matheus\Documents\memfile3.dat", READ_MODE);
+    FILE_OPEN(mem_file,"C:\Xilinx\projects\mips\test2.dat", READ_MODE);
     while not endfile(mem_file) loop
       readline(mem_file, L);
       result := 0;	
@@ -171,7 +171,7 @@ entity mips is -- single cycle MIPS processor
   port(clk, reset:        in  STD_LOGIC;
        pc:                out STD_LOGIC_VECTOR(31 downto 0);
        instr:             in  STD_LOGIC_VECTOR(31 downto 0);
-       memwrite:          out STD_LOGIC;
+       memwrite:          buffer STD_LOGIC;
        aluout, writedata: out STD_LOGIC_VECTOR(31 downto 0);
        readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
 end;
@@ -188,28 +188,55 @@ architecture struct of mips is
          immsrc:             out STD_LOGIC);
   end component;
   component datapath
-    port(clk, reset:        in  STD_LOGIC;
-         memtoreg, pcsrc:   in  STD_LOGIC;
-         alusrc, regdst:    in  STD_LOGIC;
-         regwrite, jump:    in  STD_LOGIC;
-         alucontrol:        in  STD_LOGIC_VECTOR(2 downto 0);
-         immsrc:             in  STD_LOGIC;
-         zero:              out STD_LOGIC;
-         pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
-         instr:             in STD_LOGIC_VECTOR(31 downto 0);
-         aluout, writedata: buffer STD_LOGIC_VECTOR(31 downto 0);
-         readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
+    port(clk, reset:           in  STD_LOGIC;
+         memtoreg, pcsrc:      in  STD_LOGIC;
+         alusrc, regdst:       in  STD_LOGIC;
+         regwrite, jump:       in  STD_LOGIC;
+         memwrite:             in  STD_LOGIC;
+         alucontrol:           in  STD_LOGIC_VECTOR(2 downto 0);
+         immsrc:               in  STD_LOGIC;
+         forwardAE, forwardBE: in  STD_LOGIC_VECTOR(1 downto 0);
+         stallF, stallD:       in  STD_LOGIC;
+         flushE:               in  STD_LOGIC;
+         zero:                 out STD_LOGIC;
+         pc:                   buffer STD_LOGIC_VECTOR(31 downto 0);
+         instr:                in STD_LOGIC_VECTOR(31 downto 0);
+         aluoutM, writedataM:  buffer STD_LOGIC_VECTOR(31 downto 0);
+         readdata:             in  STD_LOGIC_VECTOR(31 downto 0);
+         rsE, rtE, rsD, rtD:   out STD_LOGIC_VECTOR(4 downto 0);
+         regwriteM, regwriteW: out STD_LOGIC;
+         writeregM, writeregW: out STD_LOGIC_VECTOR(4 downto 0);
+         memtoregE:            out STD_LOGIC);
+  end component;
+  component hazardunit is
+    port(rsE, rtE, rsD, rtD:     in  STD_LOGIC_VECTOR(4 downto 0);
+         regWriteM, regWriteW:   in  STD_LOGIC;
+         writeRegM, writeRegW:   in  STD_LOGIC_VECTOR(4 downto 0);
+         memToRegE:              in  STD_LOGIC;
+         forwardAE, forwardBE:   out STD_LOGIC_VECTOR(1 downto 0);
+         stallF, stallD, flushE: out STD_LOGIC);
   end component;
   signal memtoreg, alusrc, regdst, regwrite, jump, pcsrc, immsrc: STD_LOGIC;
   signal zero: STD_LOGIC;
   signal alucontrol: STD_LOGIC_VECTOR(2 downto 0);
+  signal forwardAE, forwardBE: STD_LOGIC_VECTOR(1 downto 0);
+  signal stallF, stallD, flushE: STD_LOGIC;
+  signal rsE, rtE, rsD, rtD, writeregM, writeregW: STD_LOGIC_VECTOR(4 downto 0);
+  signal regwriteM, regwriteW, memtoregE: STD_LOGIC;
+
 begin
   cont: controller port map(instr(31 downto 26), instr(5 downto 0),
                             zero, memtoreg, memwrite, pcsrc, alusrc,
                             regdst, regwrite, jump, alucontrol, immsrc);
   dp: datapath port map(clk, reset, memtoreg, pcsrc, alusrc, regdst,
-                        regwrite, jump, alucontrol, immsrc, zero, pc, instr,
-                        aluout, writedata, readdata);
+                        regwrite, jump, memwrite, alucontrol, immsrc,
+                        forwardAE, forwardBE, stallF, stallD, flushE,
+                        zero, pc, instr, aluout, writedata, readdata,
+                        rsE, rtE, rsD, rtD, regwriteM, regwriteW,
+                        writeregM, writeregW, memtoregE);
+  hu: hazardunit port map(rsE, rtE, rsD, rtD, regwriteM, regwriteW, writeregM,
+                          writeregW, memtoregE, forwardAE, forwardBE, stallF,
+                          stallD, flushE);
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -323,17 +350,25 @@ end;
 library IEEE; use IEEE.STD_LOGIC_1164.all; use IEEE.STD_LOGIC_ARITH.all;
 
 entity datapath is  -- MIPS datapath
-  port(clk, reset:        in  STD_LOGIC;
-       memtoreg, pcsrc:   in  STD_LOGIC;
-       alusrc, regdst:    in  STD_LOGIC;
-       regwrite, jump:    in  STD_LOGIC;
-       alucontrol:        in  STD_LOGIC_VECTOR(2 downto 0);
-       immsrc:             in  STD_LOGIC;
-       zero:              out STD_LOGIC;
-       pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
-       instr:             in  STD_LOGIC_VECTOR(31 downto 0);
-       aluout, writedata: buffer STD_LOGIC_VECTOR(31 downto 0);
-       readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
+  port(clk, reset:           in  STD_LOGIC;
+       memtoreg, pcsrc:      in  STD_LOGIC;
+       alusrc, regdst:       in  STD_LOGIC;
+       regwrite, jump:       in  STD_LOGIC;
+       memwrite:             in  STD_LOGIC;
+       alucontrol:           in  STD_LOGIC_VECTOR(2 downto 0);
+       immsrc:               in  STD_LOGIC;
+       forwardAE, forwardBE: in  STD_LOGIC_VECTOR(1 downto 0);
+       stallF, stallD:       in  STD_LOGIC;
+       flushE:               in  STD_LOGIC;
+       zero:                 out STD_LOGIC;
+       pc:                   buffer STD_LOGIC_VECTOR(31 downto 0);
+       instr:                in  STD_LOGIC_VECTOR(31 downto 0);
+       aluoutM, writedataM:  buffer STD_LOGIC_VECTOR(31 downto 0);
+       readdata:             in  STD_LOGIC_VECTOR(31 downto 0);
+       rsE, rtE, rsD, rtD:   buffer STD_LOGIC_VECTOR(4 downto 0);
+       regwriteM, regwriteW: buffer STD_LOGIC;
+       writeregM, writeregW: buffer STD_LOGIC_VECTOR(4 downto 0);
+       memtoregE:            buffer STD_LOGIC);
 end;
 
 architecture struct of datapath is
@@ -349,6 +384,60 @@ architecture struct of datapath is
          ra1, ra2, wa3: in  STD_LOGIC_VECTOR(4 downto 0);
          wd3:           in  STD_LOGIC_VECTOR(31 downto 0);
          rd1, rd2:      out STD_LOGIC_VECTOR(31 downto 0));
+  end component;
+  component if_id_reg
+    port(clk, enable: in  STD_LOGIC;
+         flush:       in  STD_LOGIC;
+         if_pc:       in  STD_LOGIC_VECTOR(31 downto 0);
+         if_instr:    in  STD_LOGIC_VECTOR(31 downto 0);
+         id_pc:       out STD_LOGIC_VECTOR(31 downto 0);
+         id_instr:    out STD_LOGIC_VECTOR(31 downto 0));
+  end component;
+  component id_ex_reg
+    port(clk:                      in  STD_LOGIC;
+         flush:                    in  STD_LOGIC;
+         id_regwrite, id_memtoreg: in  STD_LOGIC;
+         id_memwrite, id_alusrc:   in  STD_LOGIC;
+         id_regdst, id_immsrc:     in  STD_LOGIC;
+         id_alucontrol:            in  STD_LOGIC_VECTOR(2 downto 0);
+         id_rd1, id_rd2:           in  STD_LOGIC_VECTOR(31 downto 0);
+         id_signimm, id_unsignimm: in  STD_LOGIC_VECTOR(31 downto 0);
+         id_rs, id_rt, id_rd:      in  STD_LOGIC_VECTOR(4  downto 0);
+         ex_regwrite, ex_memtoreg: out STD_LOGIC;
+         ex_memwrite, ex_alusrc:   out STD_LOGIC;
+         ex_regdst, ex_immsrc:     out STD_LOGIC;
+         ex_alucontrol:            out STD_LOGIC_VECTOR(2 downto 0);
+         ex_rd1, ex_rd2:           out STD_LOGIC_VECTOR(31 downto 0);
+         ex_signimm, ex_unsignimm: out STD_LOGIC_VECTOR(31 downto 0);
+         ex_rs, ex_rt, ex_rd:      out STD_LOGIC_VECTOR(4  downto 0));
+  end component;
+  component ex_mem_reg
+  port(clk:           in  STD_LOGIC;
+       ex_regwrite:   in  STD_LOGIC;
+       ex_memtoreg:   in  STD_LOGIC;
+       ex_memwrite:   in  STD_LOGIC;
+       ex_aluout:     in  STD_LOGIC_VECTOR(31 downto 0);
+       ex_writereg:   in  STD_LOGIC_VECTOR(4  downto 0);
+       ex_writedata:  in  STD_LOGIC_VECTOR(31 downto 0);
+       mem_regwrite:  out STD_LOGIC;
+       mem_memtoreg:  out STD_LOGIC;
+       mem_memwrite:  out STD_LOGIC;
+       mem_aluout:    out STD_LOGIC_VECTOR(31 downto 0);
+       mem_writereg:  out STD_LOGIC_VECTOR(4  downto 0);
+       mem_writedata: out STD_LOGIC_VECTOR(31 downto 0));
+  end component;
+  component mem_wb_reg
+  port(clk:          in  STD_LOGIC;
+       mem_regwrite: in  STD_LOGIC;
+       mem_memtoreg: in  STD_LOGIC;
+       mem_aluout:   in  STD_LOGIC_VECTOR(31 downto 0);
+       mem_readdata: in  STD_LOGIC_VECTOR(31 downto 0);
+       mem_writereg: in  STD_LOGIC_VECTOR(4  downto 0);
+       wb_regwrite:  out STD_LOGIC;
+       wb_memtoreg:  out STD_LOGIC;
+       wb_aluout:    out STD_LOGIC_VECTOR(31 downto 0);
+       wb_readdata:  out STD_LOGIC_VECTOR(31 downto 0);
+       wb_writereg:  out STD_LOGIC_VECTOR(4  downto 0));
   end component;
   component adder
     port(a, b: in  STD_LOGIC_VECTOR(31 downto 0);
@@ -367,7 +456,7 @@ architecture struct of datapath is
            y: out STD_LOGIC_VECTOR(31 downto 0));
     end component;
   component flopr generic(width: integer);
-    port(clk, reset: in  STD_LOGIC;
+    port(clk, reset, enable: in  STD_LOGIC;
          d:          in  STD_LOGIC_VECTOR(width-1 downto 0);
          q:          out STD_LOGIC_VECTOR(width-1 downto 0));
   end component;
@@ -376,41 +465,82 @@ architecture struct of datapath is
          s:      in  STD_LOGIC;
          y:      out STD_LOGIC_VECTOR(width-1 downto 0));
   end component;
-  signal writereg:           STD_LOGIC_VECTOR(4 downto 0);
+  component mux3 generic(width: integer);
+    port(d0, d1, d2: in  STD_LOGIC_VECTOR(width-1 downto 0);
+        s:          in  STD_LOGIC_VECTOR(1 downto 0);
+        y:          out STD_LOGIC_VECTOR(width-1 downto 0));
+  end component;
+  component compare generic(width: integer);
+    port (a, b: in STD_LOGIC_VECTOR(width - 1 DOWNTO 0) ;
+          equal: out STD_LOGIC);
+  end component;
+  signal regwriteE, memwriteE, alusrcE, regdstE, immsrcE: STD_LOGIC;
+  signal alucontrolE: STD_LOGIC_VECTOR(2 donwto 0);
+  signal memtoregM, memwriteM: STD_LOGIC;
+  signal memtoregW: STD_LOGIC;
+  signal writeregE: STD_LOGIC_VECTOR(4 downto 0);
   signal pcjump, pcnext, 
-         pcnextbr, pcplus4, 
-         pcbranch:           STD_LOGIC_VECTOR(31 downto 0);
-  signal signimm, unsignimm, imm, immsh: STD_LOGIC_VECTOR(31 downto 0);
-  signal srca, srcb, result: STD_LOGIC_VECTOR(31 downto 0);
+         pcnextbr, pcplus4F, pcplus4D, 
+         pcbranch,
+         instrD:           STD_LOGIC_VECTOR(31 downto 0);
+  signal signimmD, signimmE, unsignimmD, unsignimmE, imm, immsh: STD_LOGIC_VECTOR(31 downto 0);
+  signal srcaE, srcbE, resultW: STD_LOGIC_VECTOR(31 downto 0);
+  signal rd1D, rd2D, rd1E, rd2E: STD_LOGIC_VECTOR(31 downto 0);
+  signal aluoutE, aluoutW, readdataW, writedataE: STD_LOGIC_VECTOR(31 downto 0);
+  signal rdE: STD_LOGIC_VECTOR (4 downto 0);
+  signal operand1, operand2: STD_LOGIC_VECTOR(31 downto 0);
 begin
   -- next PC logic
-  pcjump <= pcplus4(31 downto 28) & instr(25 downto 0) & "00";
-  pcreg: flopr generic map(32) port map(clk, reset, pcnext, pc);
-  pcadd1: adder port map(pc, X"00000004", pcplus4);
+  pcjump <= pcplus4D(31 downto 28) & instrD(25 downto 0) & "00";
+  pcreg: flopr generic map(32) port map(clk, reset, not(stallF), pcnext, pc);
+  pcadd1: adder port map(pc, X"00000004", pcplus4F);
   immsht: sl2 port map(imm, immsh);
-  pcadd2: adder port map(pcplus4, immsh, pcbranch);
-  pcbrmux: mux2 generic map(32) port map(pcplus4, pcbranch, 
+  pcadd2: adder port map(pcplus4D, immsh, pcbranch);
+  pcbrmux: mux2 generic map(32) port map(pcplus4F, pcbranch, 
                                          pcsrc, pcnextbr);
   pcmux: mux2 generic map(32) port map(pcnextbr, pcjump, jump, pcnext);
 
+  forward1mux: mux2 generic map(32) port map(rd1D, aluoutM, '0', operand1);
+  forward2mux: mux2 generic map(32) port map (rd2D, aluoutM, '0', operand2);
+  cp: compare generic map(32) port map(operand1, operand1, zero);
   -- register file logic
-  rf: regfile port map(clk, regwrite, instr(25 downto 21), 
-                       instr(20 downto 16), writereg, result, srca, 
-				writedata);
-  wrmux: mux2 generic map(5) port map(instr(20 downto 16), 
-                                      instr(15 downto 11), 
-                                      regdst, writereg);
-  resmux: mux2 generic map(32) port map(aluout, readdata, 
-                                        memtoreg, result);
-  se: signext port map(instr(15 downto 0), signimm);
-  us: unsignext port map(instr(15 downto 0), unsignimm);  
+  rf: regfile port map(clk, regwriteW, instrD(25 downto 21), 
+                       instrD(20 downto 16), writeregW, resultW, rd1D, 
+				rd2D);
+  wrmux: mux2 generic map(5) port map(rtE, rdE, regdstE, writeregE);
+  resmux: mux2 generic map(32) port map(aluoutW, readdataW,  memtoregW, resultW);
+  se: signext port map(instrD(15 downto 0), signimmD);
+  us: unsignext port map(instrD(15 downto 0), unsignimmD);  
   
-  immux: mux2 generic map(32) port map(signimm, unsignimm, immsrc, imm);
+  immux: mux2 generic map(32) port map(signimmE, unsignimmE, immsrcE, imm);
   
   -- ALU logic
-  srcbmux: mux2 generic map(32) port map(writedata, imm, alusrc, 
-                                         srcb);
-  mainalu: alu port map(srca, srcb, alucontrol, aluout, zero);
+  srcamux: mux3 generic map(32) port map(rd1E, resultW, aluoutM, forwardAE, srcaE);
+
+  writedatamux: mux3 generic map(32) port map(rd2E, resultW, aluoutM, forwardBE,
+                                              writedataE);
+
+  srcbmux: mux2 generic map(32) port map(writedataE, imm, alusrcE, srcbE);
+  mainalu: alu port map(srcaE, srcbE, alucontrolE, aluoutE, open);
+
+  --registers between stages in pipeline
+  regIfId: if_id_reg port map(clk, not(stallD), pcsrc, pcplus4F, instr, 
+                              pcplus4D, instrD);
+  regIdEx: id_ex_reg port map(clk, flushE, regwrite, memtoreg, memwrite,
+                              alusrc, regdst, immsrc, alucontrol,
+                              rd1D, rd2D, signimmD, unsignimmD,
+                              instrD(25 downto 21), instrD(20 downto 16), instrD(15 downto 11),
+                              regwriteE, memtoregE, memwriteE,
+                              alusrcE, regdstE, immsrcE, alucontrolE,
+                              rd1E, rd2E, signimmE, unsignimmE,
+                              rsE, rtE, rdE);
+  regExMem: ex_mem_reg port map(clk, regwriteE, memtoregE, memwriteE,
+                                aluoutE, writeregE, writedataE, 
+                                regwriteM, memtoregM, memwriteM, aluoutM, 
+                                writeregM, writedataM);
+  rexMemWB: mem_wb_reg port map(clk, regwriteM, memtoregM, aluoutM, readdata, 
+                                writeregM, regwriteW, memtoregW, aluoutW,
+                                readdataW, writeregW);
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all; 
@@ -435,7 +565,7 @@ begin
   -- note: for pipelined processor, write third port
   -- on falling edge of clk
   process(clk) begin
-    if rising_edge(clk) then
+    if falling_edge(clk) then
        if we3 = '1' then mem(to_integer(wa3)) <= wd3;
        end if;
     end if;
@@ -446,6 +576,144 @@ begin
     end if;
     if (to_integer(ra2) = 0) then rd2 <= X"00000000"; 
     else rd2 <= mem(to_integer(ra2));
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all; 
+use IEEE.NUMERIC_STD_UNSIGNED.all;
+
+entity if_id_reg is --IF/ID register (for first stage in pipeline)
+  port(clk, enable: in  STD_LOGIC;
+       flush:       in  STD_LOGIC;
+       if_pc:       in  STD_LOGIC_VECTOR(31 downto 0);
+       if_instr:    in  STD_LOGIC_VECTOR(31 downto 0);
+       id_pc:       out STD_LOGIC_VECTOR(31 downto 0);
+       id_instr:    out STD_LOGIC_VECTOR(31 downto 0));
+end;
+
+architecture behave of if_id_reg is
+begin
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      if (flush) then
+        id_pc <= (others => '0');
+        id_instr <= (others => '0');
+      elsif (enable) then
+        id_pc <= if_pc;
+        id_instr <= if_instr;
+      end if;
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all; 
+use IEEE.NUMERIC_STD_UNSIGNED.all;
+
+entity id_ex_reg is --ID/EX register (for second stage in pipeline)
+  port(clk:                      in  STD_LOGIC;
+       flush:                    in  STD_LOGIC;
+       id_regwrite, id_memtoreg: in  STD_LOGIC;
+       id_memwrite, id_alusrc:   in  STD_LOGIC;
+       id_regdst, id_immsrc:     in  STD_LOGIC;
+       id_alucontrol:            in  STD_LOGIC_VECTOR(2 downto 0);
+       id_rd1, id_rd2:           in  STD_LOGIC_VECTOR(31 downto 0);
+       id_signimm, id_unsignimm: in  STD_LOGIC_VECTOR(31 downto 0);
+       id_writereg:              in  STD_LOGIC_VECTOR(4  downto 0);
+       id_rs, id_rt, id_rd:      in  STD_LOGIC_VECTOR(4  downto 0);
+       ex_regwrite, ex_memtoreg: out STD_LOGIC;
+       ex_memwrite, ex_alusrc:   out STD_LOGIC;
+       ex_regdst, ex_immsrc:     out STD_LOGIC;
+       ex_alucontrol:            out STD_LOGIC_VECTOR(2 downto 0);
+       ex_rd1, ex_rd2:           out STD_LOGIC_VECTOR(31 downto 0);
+       ex_signimm, ex_unsignimm: out STD_LOGIC_VECTOR(31 downto 0);
+       ex_rs, ex_rt, ex_rd:      out STD_LOGIC_VECTOR(4  downto 0));
+end;
+
+architecture behave of id_ex_reg is
+begin
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      if (flush) then
+        ex_rd1 <= (others => '0');
+        ex_rd2 <= (others => '0');
+        ex_signimm <= (others => '0');
+        ex_unsignimm <= (others => '0');
+        ex_rs <= (others => '0');
+        ex_rt <= (others => '0');
+        ex_rd <= (others => '0');
+        ex_immsrc <= '0';
+      else 
+        ex_rd1 <= id_rd1;
+        ex_rd2 <= id_rd2;
+        ex_signimm <= id_signimm;
+        ex_unsignimm <= id_unsignimm;
+        ex_rs <= id_rs;
+        ex_rt <= id_rt;
+        ex_rd <= id_rd;
+        ex_immsrc <= id_immsrc;
+      end if;
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all; 
+use IEEE.NUMERIC_STD_UNSIGNED.all;
+
+entity ex_mem_reg is --EX/MEM register (for third stage in pipeline)
+port(clk:           in  STD_LOGIC;
+     ex_regwrite:   in  STD_LOGIC;
+     ex_memtoreg:   in  STD_LOGIC;
+     ex_memwrite:   in  STD_LOGIC;
+     ex_aluout:     in  STD_LOGIC_VECTOR(31 downto 0);
+     ex_writereg:   in  STD_LOGIC_VECTOR(4  downto 0);
+     ex_writedata:  in  STD_LOGIC_VECTOR(31 downto 0);
+     mem_regwrite:  out STD_LOGIC;
+     mem_memtoreg:  out STD_LOGIC;
+     mem_memwrite:  out STD_LOGIC;
+     mem_aluout:    out STD_LOGIC_VECTOR(31 downto 0);
+     mem_writereg:  out STD_LOGIC_VECTOR(4  downto 0);
+     mem_writedata: out STD_LOGIC_VECTOR(31 downto 0));
+end;
+
+architecture behave of ex_mem_reg is
+begin
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      mem_aluout <= ex_aluout;
+      mem_writereg <= ex_writereg;
+      mem_writedata <= ex_writedata;
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all; 
+use IEEE.NUMERIC_STD_UNSIGNED.all;
+
+entity mem_wb_reg is --MEM/WB (for fourth stage in pipeline)
+  port(clk:          in  STD_LOGIC;
+       mem_regwrite: in  STD_LOGIC;
+       mem_memtoreg: in  STD_LOGIC;
+       mem_aluout:   in  STD_LOGIC_VECTOR(31 downto 0);
+       mem_readdata: in  STD_LOGIC_VECTOR(31 downto 0);
+       mem_writereg: in  STD_LOGIC_VECTOR(4  downto 0);
+       wb_regwrite:  out STD_LOGIC;
+       wb_memtoreg:  out STD_LOGIC;
+       wb_aluout:    out STD_LOGIC_VECTOR(31 downto 0);
+       wb_readdata:  out STD_LOGIC_VECTOR(31 downto 0);
+       wb_writereg:  out STD_LOGIC_VECTOR(4  downto 0));
+end;
+
+architecture behave of mem_wb_reg is
+begin 
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      wb_readdata <= mem_readdata;
+      wb_writereg <= mem_writereg;
     end if;
   end process;
 end;
@@ -501,11 +769,13 @@ begin
 end;
 
 
-library IEEE; use IEEE.STD_LOGIC_1164.all;  use IEEE.STD_LOGIC_ARITH.all;
+library IEEE;use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_ARITH.all;
+use IEEE.NUMERIC_STD_UNSIGNED.all; 
 
 entity flopr is -- flip-flop with synchronous reset
   generic(width: integer);
-  port(clk, reset: in  STD_LOGIC;
+  port(clk, reset, enable: in  STD_LOGIC;
        d:          in  STD_LOGIC_VECTOR(width-1 downto 0);
        q:          out STD_LOGIC_VECTOR(width-1 downto 0));
 end;
@@ -515,7 +785,9 @@ begin
   process(clk, reset) begin
     if reset then  q <= (others => '0');
     elsif rising_edge(clk) then
-      q <= d;
+      if (enable) then
+        q <= d;
+      end if;
     end if;
   end process;
 end;
@@ -583,6 +855,21 @@ begin
       when others => y <= (others => 'X');
     end case;
   end process;
+end;
+
+library ieee ;
+use ieee.std_logic_1164.all ;
+use ieee.std_logic_unsigned.all ;
+
+entity compare is
+  generic(width: integer);
+  port (a, b: in STD_LOGIC_VECTOR(width - 1 DOWNTO 0) ;
+        equal: out STD_LOGIC);
+end;
+
+architecture behave of compare is
+begin
+  equal <= '1' when a = b else '0';
 end;
 
 
