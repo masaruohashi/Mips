@@ -37,12 +37,12 @@ begin
     wait;
   end process;
 
-  -- check that 0xffff7f02 gets written to address 0x54(=84)  at end of program
+  --check that FFFF7F02 gets written to address 84 at end of program
  process (clk) begin
    if (clk'event and clk = '0' and memwrite = '1') then
-     if (to_integer(dataadr) = 84 and writedata = x"ffff7f02") then
+     if (to_integer(dataadr) = 54 and writedata = x"FFFF7F02") then 
        report "NO ERRORS: Simulation succeeded" severity failure;
-     elsif (dataadr /= 80) then
+     elsif (dataadr /= 80) then 
        report "Simulation failed" severity failure;
      end if;
    end if;
@@ -139,7 +139,7 @@ begin
       mem(i) := (others => '0'); 
     end loop;
     index := 0; 
-    FILE_OPEN(mem_file,"C:\Xilinx\projects\mips\test2.dat", READ_MODE);
+    FILE_OPEN(mem_file,"C:\Xilinx\projects\mips\memtest.dat", READ_MODE);
     while not endfile(mem_file) loop
       readline(mem_file, L);
       result := 0;	
@@ -620,7 +620,6 @@ entity id_ex_reg is --ID/EX register (for second stage in pipeline)
        id_alucontrol:            in  STD_LOGIC_VECTOR(2 downto 0);
        id_rd1, id_rd2:           in  STD_LOGIC_VECTOR(31 downto 0);
        id_signimm, id_unsignimm: in  STD_LOGIC_VECTOR(31 downto 0);
-       id_writereg:              in  STD_LOGIC_VECTOR(4  downto 0);
        id_rs, id_rt, id_rd:      in  STD_LOGIC_VECTOR(4  downto 0);
        ex_regwrite, ex_memtoreg: out STD_LOGIC;
        ex_memwrite, ex_alusrc:   out STD_LOGIC;
