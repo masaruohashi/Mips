@@ -475,7 +475,7 @@ architecture struct of datapath is
           equal: out STD_LOGIC);
   end component;
   signal regwriteE, memwriteE, alusrcE, regdstE, immsrcE: STD_LOGIC;
-  signal alucontrolE: STD_LOGIC_VECTOR(2 donwto 0);
+  signal alucontrolE: STD_LOGIC_VECTOR(2 downto 0);
   signal memtoregM, memwriteM: STD_LOGIC;
   signal memtoregW: STD_LOGIC;
   signal writeregE: STD_LOGIC_VECTOR(4 downto 0);
