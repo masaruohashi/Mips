@@ -12,14 +12,19 @@ architecture test of testbench is
   component top
     port(clk, reset:           in  STD_LOGIC;
          writedata, dataadr:   out STD_LOGIC_VECTOR(31 downto 0);
-         memwrite:             out STD_LOGIC);
+         memwrite:             out STD_LOGIC;
+         memWriteMDep:              out STD_LOGIC;
+         dataadrDep, writeDataMDep: out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   signal writedata, dataadr:    STD_LOGIC_VECTOR(31 downto 0);
   signal clk, reset,  memwrite: STD_LOGIC;
+  signal memWriteMDep: STD_LOGIC;
+  signal dataadrMDep, writeDataMDep: STD_LOGIC_VECTOR(31 downto 0);
 begin
 
   -- instantiate device to be tested
-  dut: top port map(clk, reset, writedata, dataadr, memwrite);
+  dut: top port map(clk, reset, writedata, dataadr, memwrite, memWriteMDep, 
+                    dataadrMDep, writeDataMDep);
 
   -- Generate clock with 10 ns period
   process begin
@@ -39,8 +44,8 @@ begin
 
   --check that FFFF7F02 gets written to address 84 at end of program
  process (clk) begin
-   if (clk'event and clk = '0' and memwrite = '1') then
-     if (to_integer(dataadr) = 54 and writedata = x"FFFF7F02") then 
+   if (clk'event and clk = '0' and memWriteMDep = '1') then
+     if (to_integer(dataadrMDep) = 84 and writeDataMDep = x"FFFF7F02") then 
        report "NO ERRORS: Simulation succeeded" severity failure;
      elsif (dataadr /= 80) then 
        report "Simulation failed" severity failure;
@@ -55,7 +60,9 @@ use IEEE.STD_LOGIC_1164.all; use IEEE.NUMERIC_STD_UNSIGNED.all;
 entity top is -- top-level design for testing
   port(clk, reset:           in     STD_LOGIC;
        writedata, dataadr:   buffer STD_LOGIC_VECTOR(31 downto 0);
-       memwrite:             buffer STD_LOGIC);
+       memwrite:             buffer STD_LOGIC;
+       memWriteMDep:              out STD_LOGIC;
+       dataadrDep, writeDataMDep: out STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture test of top is
@@ -65,7 +72,9 @@ architecture test of top is
          instr:             in  STD_LOGIC_VECTOR(31 downto 0);
          memwrite:          out STD_LOGIC;
          aluout, writedata: out STD_LOGIC_VECTOR(31 downto 0);
-         readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
+         readdata:          in  STD_LOGIC_VECTOR(31 downto 0);
+         memWriteMDep:              out STD_LOGIC;
+         dataadrDep, writeDataMDep: out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component imem
     port(a:  in  STD_LOGIC_VECTOR(5 downto 0);
@@ -81,7 +90,7 @@ architecture test of top is
 begin
   -- instantiate processor and memories
   mips1: mips port map(clk, reset, pc, instr, memwrite, dataadr, 
-                       writedata, readdata);
+                       writedata, readdata, memWriteMDep, dataadrDep, writeDataMDep);
   imem1: imem port map(pc(7 downto 2), instr);
   dmem1: dmem port map(clk, memwrite, dataadr, writedata, readdata);
 end;
@@ -168,12 +177,14 @@ end;
 library IEEE; use IEEE.STD_LOGIC_1164.all;
 
 entity mips is -- single cycle MIPS processor
-  port(clk, reset:        in  STD_LOGIC;
-       pc:                out STD_LOGIC_VECTOR(31 downto 0);
-       instr:             in  STD_LOGIC_VECTOR(31 downto 0);
-       memwrite:          buffer STD_LOGIC;
-       aluout, writedata: out STD_LOGIC_VECTOR(31 downto 0);
-       readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
+  port(clk, reset:                in  STD_LOGIC;
+       pc:                        out STD_LOGIC_VECTOR(31 downto 0);
+       instr:                     in  STD_LOGIC_VECTOR(31 downto 0);
+       memwrite:                  buffer STD_LOGIC;
+       aluout, writedata:         out STD_LOGIC_VECTOR(31 downto 0);
+       readdata:                  in  STD_LOGIC_VECTOR(31 downto 0);
+       memWriteMDep:              out STD_LOGIC;
+       dataadrDep, writeDataMDep: out STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture struct of mips is
@@ -209,7 +220,9 @@ architecture struct of mips is
        regwriteM, regwriteW, regwriteE: buffer STD_LOGIC;
        writeregM, writeregW, writeregE: buffer STD_LOGIC_VECTOR(4 downto 0);
        memtoregE, memtoregM:            buffer STD_LOGIC;
-       instrD:                          buffer STD_LOGIC_VECTOR(31 downto 0));
+       instrD:                          buffer STD_LOGIC_VECTOR(31 downto 0);
+       memWriteMDep:                    out STD_LOGIC;
+       dataadrDep, writeDataMDep:       out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component hazardunit is
     port(rsE, rtE, rsD, rtD:              in  STD_LOGIC_VECTOR(4 downto 0);
@@ -240,7 +253,8 @@ begin
                         forwardAE, forwardBE, forwardAD, forwardBD,stallF, stallD, flushE,
                         zero, pc, instr, aluout, writedata, readdata,
                         rsE, rtE, rsD, rtD, regwriteM, regwriteW, regwriteE,
-                        writeregM, writeregW, writeregE, memtoregE, memtoregM, instrD);
+                        writeregM, writeregW, writeregE, memtoregE, memtoregM, instrD,
+                        memWriteMDep, dataadrDep, writeDataMDep);
   hu: hazardunit port map(rsE, rtE, rsD, rtD, regwriteM, regwriteW, regwriteE,
                           writeregM, writeregW, writeregE, memtoregE, memtoregM,
                           branchD, forwardAE, forwardBE, forwardAD, forwardBD,
@@ -380,7 +394,9 @@ port(clk, reset:                      in  STD_LOGIC;
      regwriteM, regwriteW, regwriteE: buffer STD_LOGIC;
      writeregM, writeregW, writeregE: buffer STD_LOGIC_VECTOR(4 downto 0);
      memtoregE, memtoregM:            buffer STD_LOGIC;
-     instrD:                          buffer STD_LOGIC_VECTOR(31 downto 0));
+     instrD:                          buffer STD_LOGIC_VECTOR(31 downto 0);
+     memWriteMDep:                    out STD_LOGIC;
+     dataadrDep, writeDataMDep:       out STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture struct of datapath is
@@ -554,6 +570,9 @@ begin
 
   rsD <= instrD(25 downto 21);
   rtD <= instrD(20 downto 16);
+  memWriteMDep <= memwriteM;
+  dataadrDep <= aluoutM;
+  writeDataMDep <= writedataM;
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all; 
