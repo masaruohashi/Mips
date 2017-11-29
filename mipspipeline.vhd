@@ -995,12 +995,12 @@ architecture struct of hazardunit is
          forward:   out STD_LOGIC);
   end component;
   component branchstall
-      port(rsD, rtD:             in  STD_LOGIC_VECTOR(4 downto 0);
-           branchD:              in  STD_LOGIC;
-           regwriteE:            in  STD_LOGIC;
-           writeregE, writeregM: in  STD_LOGIC_VECTOR(4 downto 0);
-           memToRegM:            in  STD_LOGIC;
-           stall:                out STD_LOGIC);
+    port(rsD, rtD:             in  STD_LOGIC_VECTOR(4 downto 0);
+          branchD:              in  STD_LOGIC;
+          regwriteE:            in  STD_LOGIC;
+          writeregE, writeregM: in  STD_LOGIC_VECTOR(4 downto 0);
+          memToRegM:            in  STD_LOGIC;
+          stall:                out STD_LOGIC);
   end component;
   signal lwstall, brstall: STD_LOGIC;
 begin
