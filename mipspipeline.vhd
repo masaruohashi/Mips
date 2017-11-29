@@ -504,7 +504,7 @@ begin
   pcjump <= pcplus4D(31 downto 28) & instrD(25 downto 0) & "00";
   pcreg: flopr generic map(32) port map(clk, reset, not(stallF), pcnext, pc);
   pcadd1: adder port map(pc, X"00000004", pcplus4F);
-  immsht: sl2 port map(imm, immsh);
+  immsht: sl2 port map(signimmD, immsh);
   pcadd2: adder port map(pcplus4D, immsh, pcbranch);
   pcbrmux: mux2 generic map(32) port map(pcplus4F, pcbranch, 
                                          pcsrc, pcnextbr);
@@ -512,7 +512,7 @@ begin
 
   forward1mux: mux2 generic map(32) port map(rd1D, aluoutM, forwardAD, operand1);
   forward2mux: mux2 generic map(32) port map (rd2D, aluoutM, forwardBD, operand2);
-  cp: compare generic map(32) port map(operand1, operand1, zero);
+  cp: compare generic map(32) port map(operand1, operand2, zero);
   -- register file logic
   rf: regfile port map(clk, regwriteW, instrD(25 downto 21), 
                        instrD(20 downto 16), writeregW, resultW, rd1D, 
@@ -551,6 +551,9 @@ begin
   rexMemWB: mem_wb_reg port map(clk, reset, regwriteM, memtoregM, aluoutM, readdata, 
                                 writeregM, regwriteW, memtoregW, aluoutW,
                                 readdataW, writeregW);
+
+  rsD <= instrD(25 downto 21);
+  rtD <= instrD(20 downto 16);
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all; 
@@ -610,7 +613,7 @@ begin
       id_pc <= (others => '0');
       id_instr <= (others => '0');
     elsif rising_edge(clk) then
-      if (flush) then
+      if (enable and flush) then
         id_pc <= (others => '0');
         id_instr <= (others => '0');
       elsif (enable) then
@@ -905,7 +908,7 @@ end;
 
 architecture behave of mux3 is
 begin
-  process(s) begin
+  process(all) begin
     case s is
       when "00" => y <= d0;
       when "01" => y <= d1;
@@ -949,6 +952,26 @@ begin
       forward <= "01";
     else
       forward <= "00";
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
+entity controlfowarding is -- Control Hazard Fowarding unit
+  port(regaddr:   in  STD_LOGIC_VECTOR(4 downto 0);
+       writeRegM: in  STD_LOGIC_VECTOR(4 downto 0);
+       regWriteM: in  STD_LOGIC;
+       forward:   out STD_LOGIC);
+end;
+
+architecture behave of controlfowarding is
+begin
+  process(all) begin
+    if(regaddr /= "00000" and  regaddr = writeRegM and regWriteM = '1') then
+      forward <= '1';
+    else
+      forward <= '0';
     end if;
   end process;
 end;
