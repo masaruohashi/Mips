@@ -182,61 +182,67 @@ architecture struct of mips is
          zero:               in  STD_LOGIC;
          memtoreg, memwrite: out STD_LOGIC;
          pcsrc, alusrc:      out STD_LOGIC;
+         branch:             out STD_LOGIC;
          regdst, regwrite:   out STD_LOGIC;
          jump:               out STD_LOGIC;
          alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
          immsrc:             out STD_LOGIC);
   end component;
   component datapath
-    port(clk, reset:           in  STD_LOGIC;
-         memtoreg, pcsrc:      in  STD_LOGIC;
-         alusrc, regdst:       in  STD_LOGIC;
-         regwrite, jump:       in  STD_LOGIC;
-         memwrite:             in  STD_LOGIC;
-         alucontrol:           in  STD_LOGIC_VECTOR(2 downto 0);
-         immsrc:               in  STD_LOGIC;
-         forwardAE, forwardBE: in  STD_LOGIC_VECTOR(1 downto 0);
-         stallF, stallD:       in  STD_LOGIC;
-         flushE:               in  STD_LOGIC;
-         zero:                 out STD_LOGIC;
-         pc:                   buffer STD_LOGIC_VECTOR(31 downto 0);
-         instr:                in STD_LOGIC_VECTOR(31 downto 0);
-         aluoutM, writedataM:  buffer STD_LOGIC_VECTOR(31 downto 0);
-         readdata:             in  STD_LOGIC_VECTOR(31 downto 0);
-         rsE, rtE, rsD, rtD:   out STD_LOGIC_VECTOR(4 downto 0);
-         regwriteM, regwriteW: out STD_LOGIC;
-         writeregM, writeregW: out STD_LOGIC_VECTOR(4 downto 0);
-         memtoregE:            out STD_LOGIC);
+    port(clk, reset:                      in  STD_LOGIC;
+         memtoreg, pcsrc:                 in  STD_LOGIC;
+         alusrc, regdst:                  in  STD_LOGIC;
+         regwrite, jump:                  in  STD_LOGIC;
+         memwrite:                        in  STD_LOGIC;
+         alucontrol:                      in  STD_LOGIC_VECTOR(2 downto 0);
+         immsrc:                          in  STD_LOGIC;
+         forwardAE, forwardBE:            in  STD_LOGIC_VECTOR(1 downto 0);
+         forwardAD, forwardBD:            in  STD_LOGIC;
+         stallF, stallD:                  in  STD_LOGIC;
+         flushE:                          in  STD_LOGIC;
+         zero:                            out STD_LOGIC;
+         pc:                              buffer STD_LOGIC_VECTOR(31 downto 0);
+         instr:                           in  STD_LOGIC_VECTOR(31 downto 0);
+         aluoutM, writedataM:             buffer STD_LOGIC_VECTOR(31 downto 0);
+         readdata:                        in  STD_LOGIC_VECTOR(31 downto 0);
+         rsE, rtE, rsD, rtD:              buffer STD_LOGIC_VECTOR(4 downto 0);
+         regwriteM, regwriteW, regwriteE: buffer STD_LOGIC;
+         writeregM, writeregW, writeregE: buffer STD_LOGIC_VECTOR(4 downto 0);
+         memtoregE, memtoregM:            buffer STD_LOGIC);
   end component;
   component hazardunit is
-    port(rsE, rtE, rsD, rtD:     in  STD_LOGIC_VECTOR(4 downto 0);
-         regWriteM, regWriteW:   in  STD_LOGIC;
-         writeRegM, writeRegW:   in  STD_LOGIC_VECTOR(4 downto 0);
-         memToRegE:              in  STD_LOGIC;
-         forwardAE, forwardBE:   out STD_LOGIC_VECTOR(1 downto 0);
-         stallF, stallD, flushE: out STD_LOGIC);
+    port(rsE, rtE, rsD, rtD:              in  STD_LOGIC_VECTOR(4 downto 0);
+         regWriteM, regWriteW, regWriteE: in  STD_LOGIC;
+         writeRegM, writeRegW, writeRegE: in  STD_LOGIC_VECTOR(4 downto 0);
+         memToRegE, memToRegM:            in  STD_LOGIC;
+         branchD:                         in  STD_LOGIC;
+         forwardAE, forwardBE:            out STD_LOGIC_VECTOR(1 downto 0);
+         forwardAD, forwardBD:            out STD_LOGIC;
+         stallF, stallD, flushE:          out STD_LOGIC);
   end component;
   signal memtoreg, alusrc, regdst, regwrite, jump, pcsrc, immsrc: STD_LOGIC;
   signal zero: STD_LOGIC;
   signal alucontrol: STD_LOGIC_VECTOR(2 downto 0);
   signal forwardAE, forwardBE: STD_LOGIC_VECTOR(1 downto 0);
+  signal forwardAD, forwardBD: STD_LOGIC;
   signal stallF, stallD, flushE: STD_LOGIC;
-  signal rsE, rtE, rsD, rtD, writeregM, writeregW: STD_LOGIC_VECTOR(4 downto 0);
-  signal regwriteM, regwriteW, memtoregE: STD_LOGIC;
+  signal rsE, rtE, rsD, rtD, writeregM, writeregW, writeregE: STD_LOGIC_VECTOR(4 downto 0);
+  signal regwriteM, regwriteW, regwriteE, memtoregE, memtoregM, branchD: STD_LOGIC;
 
 begin
   cont: controller port map(instr(31 downto 26), instr(5 downto 0),
-                            zero, memtoreg, memwrite, pcsrc, alusrc,
+                            zero, memtoreg, memwrite, pcsrc, alusrc, branchD,
                             regdst, regwrite, jump, alucontrol, immsrc);
   dp: datapath port map(clk, reset, memtoreg, pcsrc, alusrc, regdst,
                         regwrite, jump, memwrite, alucontrol, immsrc,
-                        forwardAE, forwardBE, stallF, stallD, flushE,
+                        forwardAE, forwardBE, forwardAD, forwardBD, stallF, stallD, flushE,
                         zero, pc, instr, aluout, writedata, readdata,
-                        rsE, rtE, rsD, rtD, regwriteM, regwriteW,
-                        writeregM, writeregW, memtoregE);
-  hu: hazardunit port map(rsE, rtE, rsD, rtD, regwriteM, regwriteW, writeregM,
-                          writeregW, memtoregE, forwardAE, forwardBE, stallF,
-                          stallD, flushE);
+                        rsE, rtE, rsD, rtD, regwriteM, regwriteW, regwriteE,
+                        writeregM, writeregW, writeregE, memtoregE, memtoregM);
+  hu: hazardunit port map(rsE, rtE, rsD, rtD, regwriteM, regwriteW, regwriteE,
+                          writeregM, writeregW, writeregE, memtoregE, memtoregM,
+                          branchD, forwardAE, forwardBE, forwardAD, forwardBD,
+                          stallF, stallD, flushE);
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -246,6 +252,7 @@ entity controller is -- single cycle control decoder
        zero:               in  STD_LOGIC;
        memtoreg, memwrite: out STD_LOGIC;
        pcsrc, alusrc:      out STD_LOGIC;
+       branch:             out STD_LOGIC;
        regdst, regwrite:   out STD_LOGIC;
        jump:               out STD_LOGIC;
        alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
@@ -270,12 +277,12 @@ architecture struct of controller is
          alucontrol: out STD_LOGIC_VECTOR(2 downto 0));
   end component;
   signal aluop:  STD_LOGIC_VECTOR(1 downto 0);
-  signal branch: STD_LOGIC;
+  signal signal_branch: STD_LOGIC;
   signal zerosrc: STD_LOGIC;
   signal mux_zero: STD_LOGIC;
   
 begin
-  md: maindec port map(op, memtoreg, memwrite, branch,
+  md: maindec port map(op, memtoreg, memwrite, signal_branch,
                        alusrc, regdst, regwrite, jump, aluop, zerosrc, immsrc);
   ad: aludec port map(funct, aluop, alucontrol);
   
@@ -283,7 +290,8 @@ begin
   -- �, basicamente, um mux para poder implementar o bne - branch on not equal
   mux_zero <= zero when zerosrc = '0' else not zero; 
   
-  pcsrc <= branch and mux_zero;
+  pcsrc <= signal_branch and mux_zero;
+  branch <= signal_branch;
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -350,25 +358,26 @@ end;
 library IEEE; use IEEE.STD_LOGIC_1164.all; use IEEE.STD_LOGIC_ARITH.all;
 
 entity datapath is  -- MIPS datapath
-  port(clk, reset:           in  STD_LOGIC;
-       memtoreg, pcsrc:      in  STD_LOGIC;
-       alusrc, regdst:       in  STD_LOGIC;
-       regwrite, jump:       in  STD_LOGIC;
-       memwrite:             in  STD_LOGIC;
-       alucontrol:           in  STD_LOGIC_VECTOR(2 downto 0);
-       immsrc:               in  STD_LOGIC;
-       forwardAE, forwardBE: in  STD_LOGIC_VECTOR(1 downto 0);
-       stallF, stallD:       in  STD_LOGIC;
-       flushE:               in  STD_LOGIC;
-       zero:                 out STD_LOGIC;
-       pc:                   buffer STD_LOGIC_VECTOR(31 downto 0);
-       instr:                in  STD_LOGIC_VECTOR(31 downto 0);
-       aluoutM, writedataM:  buffer STD_LOGIC_VECTOR(31 downto 0);
-       readdata:             in  STD_LOGIC_VECTOR(31 downto 0);
-       rsE, rtE, rsD, rtD:   buffer STD_LOGIC_VECTOR(4 downto 0);
-       regwriteM, regwriteW: buffer STD_LOGIC;
-       writeregM, writeregW: buffer STD_LOGIC_VECTOR(4 downto 0);
-       memtoregE:            buffer STD_LOGIC);
+  port(clk, reset:                      in  STD_LOGIC;
+       memtoreg, pcsrc:                 in  STD_LOGIC;
+       alusrc, regdst:                  in  STD_LOGIC;
+       regwrite, jump:                  in  STD_LOGIC;
+       memwrite:                        in  STD_LOGIC;
+       alucontrol:                      in  STD_LOGIC_VECTOR(2 downto 0);
+       immsrc:                          in  STD_LOGIC;
+       forwardAE, forwardBE:            in  STD_LOGIC_VECTOR(1 downto 0);
+       forwardAD, forwardBD:            in  STD_LOGIC;
+       stallF, stallD:                  in  STD_LOGIC;
+       flushE:                          in  STD_LOGIC;
+       zero:                            out STD_LOGIC;
+       pc:                              buffer STD_LOGIC_VECTOR(31 downto 0);
+       instr:                           in  STD_LOGIC_VECTOR(31 downto 0);
+       aluoutM, writedataM:             buffer STD_LOGIC_VECTOR(31 downto 0);
+       readdata:                        in  STD_LOGIC_VECTOR(31 downto 0);
+       rsE, rtE, rsD, rtD:              buffer STD_LOGIC_VECTOR(4 downto 0);
+       regwriteM, regwriteW, regwriteE: buffer STD_LOGIC;
+       writeregM, writeregW, writeregE: buffer STD_LOGIC_VECTOR(4 downto 0);
+       memtoregE, memtoregM:            buffer STD_LOGIC);
 end;
 
 architecture struct of datapath is
@@ -474,11 +483,10 @@ architecture struct of datapath is
     port (a, b: in STD_LOGIC_VECTOR(width - 1 DOWNTO 0) ;
           equal: out STD_LOGIC);
   end component;
-  signal regwriteE, memwriteE, alusrcE, regdstE, immsrcE: STD_LOGIC;
+  signal memwriteE, alusrcE, regdstE, immsrcE: STD_LOGIC;
   signal alucontrolE: STD_LOGIC_VECTOR(2 downto 0);
-  signal memtoregM, memwriteM: STD_LOGIC;
+  signal memwriteM: STD_LOGIC;
   signal memtoregW: STD_LOGIC;
-  signal writeregE: STD_LOGIC_VECTOR(4 downto 0);
   signal pcjump, pcnext, 
          pcnextbr, pcplus4F, pcplus4D, 
          pcbranch,
@@ -500,8 +508,8 @@ begin
                                          pcsrc, pcnextbr);
   pcmux: mux2 generic map(32) port map(pcnextbr, pcjump, jump, pcnext);
 
-  forward1mux: mux2 generic map(32) port map(rd1D, aluoutM, '0', operand1);
-  forward2mux: mux2 generic map(32) port map (rd2D, aluoutM, '0', operand2);
+  forward1mux: mux2 generic map(32) port map(rd1D, aluoutM, forwardAD, operand1);
+  forward2mux: mux2 generic map(32) port map (rd2D, aluoutM, forwardBD, operand2);
   cp: compare generic map(32) port map(operand1, operand1, zero);
   -- register file logic
   rf: regfile port map(clk, regwriteW, instrD(25 downto 21), 
@@ -884,12 +892,32 @@ end;
 architecture behave of datafowarding is
 begin
   process(all) begin
-    if(regaddr /= "0000" and  regaddr = writeRegM and regWriteM = '1') then
+    if(regaddr /= "00000" and  regaddr = writeRegM and regWriteM = '1') then
       forward <= "10";
-    elsif(regaddr /= "0000" and regaddr = writeRegW and regWriteW = '1') then
+    elsif(regaddr /= "00000" and regaddr = writeRegW and regWriteW = '1') then
       forward <= "01";
     else
       forward <= "00";
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
+entity controlfowarding is -- Control Hazard Fowarding unit
+  port(regaddr:   in  STD_LOGIC_VECTOR(4 downto 0);
+       writeRegM: in  STD_LOGIC_VECTOR(4 downto 0);
+       regWriteM: in  STD_LOGIC;
+       forward:   out STD_LOGIC);
+end;
+
+architecture behave of controlfowarding is
+begin
+  process(all) begin
+    if(regaddr /= "00000" and  regaddr = writeRegM and regWriteM = '1') then
+      forward <= '1';
+    else
+      forward <= '0';
     end if;
   end process;
 end;
@@ -915,13 +943,37 @@ end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
 
+entity branchstall is -- Hardware Stall unit
+  port(rsD, rtD:             in  STD_LOGIC_VECTOR(4 downto 0);
+       branchD:              in  STD_LOGIC;
+       regwriteE:            in  STD_LOGIC;
+       writeregE, writeregM: in  STD_LOGIC_VECTOR(4 downto 0);
+       memToRegM:            in  STD_LOGIC;
+       stall:                out STD_LOGIC);
+end;
+
+architecture behave of branchstall is
+begin
+  process(all) begin
+    if (branchD = '1' and regwriteE = '1' and (writeregE = rsD or writeregE = rtD)) or (branchD = '1' and memtoregM = '1' and (writeRegM = rsD or writeregM = rtD)) then
+      stall <= '1';
+    else
+      stall <= '0';
+    end if;
+  end process;
+end;
+
+library IEEE; use IEEE.STD_LOGIC_1164.all;
+
 entity hazardunit is
-  port(rsE, rtE, rsD, rtD:     in  STD_LOGIC_VECTOR(4 downto 0);
-       regWriteM, regWriteW:   in  STD_LOGIC;
-       writeRegM, writeRegW:   in  STD_LOGIC_VECTOR(4 downto 0);
-       memToRegE:              in  STD_LOGIC;
-       forwardAE, forwardBE:   out STD_LOGIC_VECTOR(1 downto 0);
-       stallF, stallD, flushE: out STD_LOGIC);
+  port(rsE, rtE, rsD, rtD:              in  STD_LOGIC_VECTOR(4 downto 0);
+       regWriteM, regWriteW, regWriteE: in  STD_LOGIC;
+       writeRegM, writeRegW, writeRegE: in  STD_LOGIC_VECTOR(4 downto 0);
+       memToRegE, memToRegM:            in  STD_LOGIC;
+       branchD:                         in  STD_LOGIC;
+       forwardAE, forwardBE:            out STD_LOGIC_VECTOR(1 downto 0);
+       forwardAD, forwardBD:            out STD_LOGIC;
+       stallF, stallD, flushE:          out STD_LOGIC);
 end;
 
 architecture struct of hazardunit is
@@ -936,12 +988,29 @@ architecture struct of hazardunit is
          memToRegE:     in  STD_LOGIC;
          stall:         out STD_LOGIC);
   end component;
-  signal lwstall: STD_LOGIC;
+  component controlfowarding
+    port(regaddr:   in  STD_LOGIC_VECTOR(4 downto 0);
+         writeRegM: in  STD_LOGIC_VECTOR(4 downto 0);
+         regWriteM: in  STD_LOGIC;
+         forward:   out STD_LOGIC);
+  end component;
+  component branchstall
+    port(rsD, rtD:             in  STD_LOGIC_VECTOR(4 downto 0);
+          branchD:              in  STD_LOGIC;
+          regwriteE:            in  STD_LOGIC;
+          writeregE, writeregM: in  STD_LOGIC_VECTOR(4 downto 0);
+          memToRegM:            in  STD_LOGIC;
+          stall:                out STD_LOGIC);
+  end component;
+  signal lwstall, brstall: STD_LOGIC;
 begin
-  forwardingA: datafowarding port map (rsE, writeRegM, writeRegW, regWriteM, regWriteW, forwardAE);
-  forwardingB: datafowarding port map (rtE, writeRegM, writeRegW, regWriteM, regWriteW, forwardBE);
-  stalling: hardwarestall port map (rsD, rtE, rtD, memToRegE, lwstall);
-  stallF <= lwstall;
-  stallD <= lwstall;
-  flushE <= lwstall;
+  forwardingAE: datafowarding port map (rsE, writeRegM, writeRegW, regWriteM, regWriteW, forwardAE);
+  forwardingBE: datafowarding port map (rtE, writeRegM, writeRegW, regWriteM, regWriteW, forwardBE);
+  forwardingAD: controlfowarding port map (rsD, writeRegM, regWriteM, forwardAD);
+  forwardingBD: controlfowarding port map (rtD, writeRegM, regWriteM, forwardBD);
+  hadwarestalling: hardwarestall port map (rsD, rtE, rtD, memToRegE, lwstall);
+  branchstalling: branchstall port map (rsD, rtD, branchD, regWriteE, writeRegE, writeRegM, memToRegM, brstall);
+  stallF <= lwstall or brstall;
+  stallD <= lwstall or brstall;
+  flushE <= lwstall or brstall;
 end;
