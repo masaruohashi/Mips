@@ -17,3 +17,7 @@ With [MIPS pipeline](https://github.com/rmohashi/Mips/blob/master/mipspipeline.v
 * Rodrigo Masaru Ohashi - [rmohashi](https://github.com/rmohashi)
 * Bruno Eidi Nishimoto - [brunonishimoto](https://github.com/brunonishimoto)
 * Matheus Felix Dias Lima da Silva - [matheussf](https://github.com/matheusssf)
+
+## References
+
+[Fundamentals of Computer Systems - A Pipelined MIPS Processor](http://www.cs.columbia.edu/~sedwards/classes/2012/3827-spring/mips-pipeline.pdf)
