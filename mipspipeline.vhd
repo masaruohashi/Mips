@@ -892,9 +892,9 @@ end;
 architecture behave of datafowarding is
 begin
   process(all) begin
-    if(regaddr /= "0000" and  regaddr = writeRegM and regWriteM = '1') then
+    if(regaddr /= "00000" and  regaddr = writeRegM and regWriteM = '1') then
       forward <= "10";
-    elsif(regaddr /= "0000" and regaddr = writeRegW and regWriteW = '1') then
+    elsif(regaddr /= "00000" and regaddr = writeRegW and regWriteW = '1') then
       forward <= "01";
     else
       forward <= "00";
@@ -914,7 +914,7 @@ end;
 architecture behave of controlfowarding is
 begin
   process(all) begin
-    if(regaddr /= "0000" and  regaddr = writeRegM and regWriteM = '1') then
+    if(regaddr /= "00000" and  regaddr = writeRegM and regWriteM = '1') then
       forward <= '1';
     else
       forward <= '0';
