@@ -1087,4 +1087,3 @@ begin
   stallD <= lwstall or brstall;
   flushE <= lwstall or brstall;
 end;
-
