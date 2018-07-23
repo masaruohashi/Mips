@@ -1,4 +1,4 @@
--- mips.vhd
+-- mipspipeline.vhd
 -- From Section 7.6 of Digital Design & Computer Architecture
 -- Updated to VHDL 2008 26 July 2011 David_Harris@hmc.edu
 
@@ -42,15 +42,15 @@ begin
     wait;
   end process;
 
-  --check that FFFF7F02 gets written to address 84 at end of program
+  --check that 000001AF gets written to address 25 at end of program
  process (clk) begin
-   if (clk'event and clk = '0' and memWriteMDep = '1') then
-     if (to_integer(dataadrMDep) = 84 and writeDataMDep = x"FFFF7F02") then 
-       report "NO ERRORS: Simulation succeeded" severity failure;
-     elsif (dataadr /= 80) then 
-       report "Simulation failed" severity failure;
-     end if;
-   end if;
+   if (clk'event and clk = '1' and memWriteMDep = '1') then
+    if (to_integer(dataadrMDep) = 25 and writeDataMDep = x"000001AF") then 
+      report "NO ERRORS: Simulation succeeded" severity failure;
+    else 
+      report "Simulation failed" severity failure;
+    end if;
+  end if;
  end process;
 end;
 
@@ -61,8 +61,8 @@ entity top is -- top-level design for testing
   port(clk, reset:           in     STD_LOGIC;
        writedata, dataadr:   buffer STD_LOGIC_VECTOR(31 downto 0);
        memwrite:             buffer STD_LOGIC;
-       memWriteMDep:              out STD_LOGIC;
-       dataadrDep, writeDataMDep: out STD_LOGIC_VECTOR(31 downto 0));
+       memWriteMDep:              buffer STD_LOGIC;
+       dataadrDep, writeDataMDep: buffer STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture test of top is
@@ -92,7 +92,7 @@ begin
   mips1: mips port map(clk, reset, pc, instr, memwrite, dataadr, 
                        writedata, readdata, memWriteMDep, dataadrDep, writeDataMDep);
   imem1: imem port map(pc(7 downto 2), instr);
-  dmem1: dmem port map(clk, memwrite, dataadr, writedata, readdata);
+  dmem1: dmem port map(clk, memwriteMDep, dataadrDep, writeDataMDep, readdata);
 end;
 
 library IEEE; 
@@ -113,7 +113,7 @@ begin
   begin
     -- read or write memory
    loop
-      if clk'event and clk = '1' then
+      if clk'event and clk = '0' then
           if (we = '1') then mem(to_integer(a(7 downto 2))) := wd;
           end if;
       end if;
@@ -148,7 +148,7 @@ begin
       mem(i) := (others => '0'); 
     end loop;
     index := 0; 
-    FILE_OPEN(mem_file,"C:\Xilinx\projects\mips\memtest.dat", READ_MODE);
+    FILE_OPEN(mem_file,"C:\Xilinx\projects\mips\test3.dat", READ_MODE);
     while not endfile(mem_file) loop
       readline(mem_file, L);
       result := 0;	
