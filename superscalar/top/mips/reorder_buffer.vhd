@@ -29,8 +29,10 @@ begin
 
   s_full <= '1' when s_counter = 6 else '0';
 
-  process (clk)
+  process (clk, cdb_q)
   begin
+
+    q_dst <= std_logic_vector(tail);
 
     if (reset = '1') then
       l1: for i in 0 to 6 loop
@@ -48,7 +50,6 @@ begin
 
       -- insert new instruction in rob
       if (s_counter /= 6) then
-        q_dst <= std_logic_vector(tail);
         if (tail = 6) then
           tail <= (others => '0');
         else
@@ -59,21 +60,6 @@ begin
         s_counter <= s_counter + 1;
       end if;
 
-      --snoop for cbd
-      rob(to_integer(unsigned(cdb_q))).data <= cdb_data;
-      rob(to_integer(unsigned(cdb_q))).valid <= '1';
-      -- remove an item if we've got its data
-      if (rob(to_integer(unsigned(head))).valid = '1') then
-        if (head = 6) then
-          head <= (others => '0');
-        else
-          head <= head + 1;
-        end if;
-        rob(to_integer(unsigned(head))).valid <= '0';
-        rob(to_integer(unsigned(head))).reg_dst <= (others => '0');
-        rob(to_integer(unsigned(head))).data <= (others => '0');
-        s_counter <= s_counter - 1;
-      end if;
 
       l2: for i in 0 to 6 loop
         qj <= (others => '1');  -- 111 indicates that there is no dependencies
@@ -85,6 +71,28 @@ begin
           qk <= std_logic_vector(to_unsigned(i, qk'length));
         end if;
       end loop l2;
+
+      -- increment header
+      if (rob(to_integer(unsigned(head))).valid = '1') then
+        s_counter <= s_counter - 1;
+        rob(to_integer(unsigned(head))).reg_dst <= (others => '0');
+        rob(to_integer(unsigned(head))).data <= (others => '0');
+        rob(to_integer(unsigned(head))).valid <= '0';
+        if (head = 6) then
+          head <= (others => '0');
+        else
+          head <= head + 1;
+        end if;
+      end if;
+
+      if (cdb_q /= "111") then
+        --snoop for cbd
+        rob(to_integer(unsigned(cdb_q))).data <= cdb_data;
+        rob(to_integer(unsigned(cdb_q))).valid <= '1';
+      end if;
+
     end if;
+
+
   end process;
 end;

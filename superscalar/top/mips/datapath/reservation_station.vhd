@@ -46,6 +46,10 @@ begin
         rs(i).vj <= (others => '0');
         rs(i).vk <= (others => '0');
         counter <= (others => '0');
+        q_dst_out <= (others => '1');
+        op_out <= (others => '0');
+        vj_out <= (others => '0');
+        vk_out <= (others => '0');
       end loop l1;
     elsif (clk'event and clk = '1') then
 
