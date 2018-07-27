@@ -33,14 +33,14 @@ begin
 
   op_sent <= s_op_sent;
 
-  process (new_item)
+  process (clk)
   begin
 
     if (reset ='1') then
       l1: for i in 0 to num_rs - 1 loop
         rs(i).busy <= '0';
         rs(i).op <= (others => '0');
-        rs(i).q_dst <= (others => '0');
+        rs(i).q_dst <= (others => '1');
         rs(i).qj <= (others => '1');  -- 111 represents an empty q
         rs(i).qk <= (others => '1');  -- 111 represents an empty q
         rs(i).vj <= (others => '0');
@@ -48,22 +48,21 @@ begin
         counter <= (others => '0');
       end loop l1;
     elsif (clk'event and clk = '1') then
-      -- new operand, we need to insert new item in a free rs
-      if (new_item = '1') then
-        l2: for i in 0 to num_rs - 1 loop
-          if (rs(i).busy = '0') then
-            rs(i).busy <= '1';
-            rs(i).op <= op_in;
-            rs(i).vj <= vj_in;
-            rs(i).vk <= vk_in;
-            rs(i).q_dst <= q_dst;
-            rs(i).qj <= qj;
-            rs(i).qk <= qk;
-            counter <= counter + 1;
-            exit;
-          end if;
-        end loop l2;
-      end if;
+
+      -- add an instruction to an free rs
+      l2: for i in 0 to num_rs - 1 loop
+        if (rs(i).busy = '0' and new_item = '1') then
+          rs(i).busy <= '1';
+          rs(i).op <= op_in;
+          rs(i).vj <= vj_in;
+          rs(i).vk <= vk_in;
+          rs(i).q_dst <= q_dst;
+          rs(i).qj <= qj;
+          rs(i).qk <= qk;
+          counter <= counter + 1;
+          exit;
+        end if;
+      end loop l2;
 
       l3: for i in 0 to num_rs - 1 loop
         -- snoop for cdb

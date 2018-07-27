@@ -3,8 +3,8 @@ use IEEE.STD_LOGIC_1164.all; use STD.TEXTIO.all;
 use IEEE.NUMERIC_STD_UNSIGNED.all;
 
 entity imem is -- instruction memory
-  port(a:             in  STD_LOGIC_VECTOR(5 downto 0);
-       rd1, rd2, rd3: out STD_LOGIC_VECTOR(31 downto 0));
+  port(a:  in  STD_LOGIC_VECTOR(5 downto 0);
+       rd: out STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture behave of imem is
@@ -42,9 +42,7 @@ begin
 
     -- read memory
     loop
-      rd1 <= mem(to_integer(a));
-      rd2 <= mem(to_integer(a + 1));
-      rd3 <= mem(to_integer(a + 2));
+      rd <= mem(to_integer(a));
       wait on a;
     end loop;
   end process;

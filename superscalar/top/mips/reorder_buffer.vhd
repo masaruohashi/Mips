@@ -21,13 +21,14 @@ architecture behave of reorder_buffer is
 
   type rob_array is array (7 downto 0) of entry;
   signal rob: rob_array;
-  signal head, tail: UNSIGNED(2 downto 0) := (others => '0'); -- aponta para onde a proxima instrucao sera escrita
+  signal head, tail: UNSIGNED(2 downto 0) := (others => '0'); -- aponta para onde a ultima instrucao escrita
   signal s_full: STD_LOGIC := '0';
   signal s_counter: UNSIGNED(2 downto 0) := (others => '0');  --contador do numero de instrucoes no buffer
 
 begin
 
   s_full <= '1' when s_counter = 6 else '0';
+
   process (clk)
   begin
 
@@ -47,14 +48,14 @@ begin
 
       -- insert new instruction in rob
       if (s_counter /= 6) then
-        rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
-        rob(to_integer(unsigned(tail))).valid <= '0';
+        q_dst <= std_logic_vector(tail);
         if (tail = 6) then
           tail <= (others => '0');
         else
           tail <= tail + 1;
         end if;
-        q_dst <= std_logic_vector(tail);
+        rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
+        rob(to_integer(unsigned(tail))).valid <= '0';
         s_counter <= s_counter + 1;
       end if;
 
