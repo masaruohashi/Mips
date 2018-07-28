@@ -106,10 +106,10 @@ begin
   srcbmux: mux2 generic map(32) port map(writedata, imm, alusrc,
                                          vk);
 
-  rs: reservation_station generic map(2) port map(clk, reset, new_item, memtoreg, memwrite, q_dst, qj, qk,
-                                                  vj, vk, op, cdb_q, cdb_data, q_dst_out, alucontrol, srca,
-                                                  srcb, op_sent, memtoreg_out, memwrite_out, rs_counter);
+  rs: reservation_station generic map(3) port map(clk, reset, new_item, memtoreg, memwrite, q_dst, qj, qk,
+                                                  vj, vk, op, cdb_q, cdb_data, q_dst_out,
+                                                  alucontrol, srca, srcb, op_sent, memtoreg_out, memwrite_out, rs_counter);
 
   -- ALU logic
   mainalu: alu port map(srca, srcb, alucontrol, aluout, zero);
-end;
+end struct;
