@@ -58,6 +58,7 @@ architecture struct of mips is
   end component;
   component reorder_buffer
     port(clk, reset:          in STD_LOGIC;
+         alusrc:              in  STD_LOGIC;
          reg_dst, reg1, reg2: in STD_LOGIC_VECTOR(4 downto 0);
          cdb_data:            in STD_LOGIC_VECTOR(31 downto 0);
          cdb_q:               in STD_LOGIC_VECTOR(2 downto 0);
@@ -118,7 +119,7 @@ begin
   muxqj: mux2 generic map (32) port map (rf_qj_data, rob_qj_data, rob_qj_valid, vj);
   muxqk: mux2 generic map (32) port map (rf_qk_data, rob_qk_data, rob_qk_valid, writedata);
 
-  rob: reorder_buffer port map(clk, reset, reg_dst, instr(25 downto 21), instr(20 downto 16),
+  rob: reorder_buffer port map(clk, reset, alusrc1, reg_dst, instr(25 downto 21), instr(20 downto 16),
                                cdb_data_broad, cdb_q_broad, q_dst, qj, qk, rob_qj_data, rob_qk_data,
                                rob_qj_valid, rob_qk_valid, regwrite, writereg, regdata);
 

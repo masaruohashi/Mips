@@ -3,6 +3,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity reorder_buffer is -- reorder buffer
   port(clk, reset:          in  STD_LOGIC;
+       alusrc:              in  STD_LOGIC;
        reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0);
        cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0);
        cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);
@@ -98,20 +99,20 @@ begin
 
     end if;
 
-      qj <= "111";
-      qk <= "111";
-      l2: for i in 0 to 6 loop
-        if (rob(i).reg_dst = reg1 and reg1 /= "00000") then
-          qj <= std_logic_vector(to_unsigned(i, qj'length));
-          qj_data <= rob(i).data;
-          qj_valid <= rob(i).valid;
-        end if;
-        if (rob(i).reg_dst = reg2 and reg2 /= "00000") then
-          qk <= std_logic_vector(to_unsigned(i, qk'length));
-          qk_data <= rob(i).data;
-          qk_valid <= rob(i).valid;
-        end if;
-      end loop l2;
+    qj <= "111";
+    qk <= "111";
+    l2: for i in 0 to 6 loop
+      if (rob(i).reg_dst = reg1 and reg1 /= "00000") then
+        qj <= std_logic_vector(to_unsigned(i, qj'length));
+        qj_data <= rob(i).data;
+        qj_valid <= rob(i).valid;
+      end if;
+      if (rob(i).reg_dst = reg2 and reg2 /= "00000" and alusrc /= '1') then
+        qk <= std_logic_vector(to_unsigned(i, qk'length));
+        qk_data <= rob(i).data;
+        qk_valid <= rob(i).valid;
+      end if;
+    end loop l2;
 
   end process;
 end;
