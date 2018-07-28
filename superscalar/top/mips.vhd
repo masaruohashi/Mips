@@ -4,7 +4,7 @@ entity mips is -- single cycle MIPS processor
   port(clk, reset:                      in  STD_LOGIC;
        pc1, pc2, pc3:                   out STD_LOGIC_VECTOR(31 downto 0);
        instr:                           in  STD_LOGIC_VECTOR(31 downto 0);
-       memwrite1, memwrite2, memwrite3: out STD_LOGIC;
+       memwrite1_out, memwrite2_out, memwrite3_out: out STD_LOGIC;
        aluout1, aluout2, aluout3:       out STD_LOGIC_VECTOR(31 downto 0);
        writedata:                       out STD_LOGIC_VECTOR(31 downto 0);
        readdata1, readdata2, readdata3: in  STD_LOGIC_VECTOR(31 downto 0));
@@ -27,7 +27,8 @@ architecture struct of mips is
          q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- rs signals
          cdb_q:             in  STD_LOGIC_VECTOR(2 downto 0); -- rs signals
          cdb_data:          in  STD_LOGIC_VECTOR(31 downto 0); -- rs signals
-         memtoreg, pcsrc:   in  STD_LOGIC;
+         memtoreg, memwrite:in  STD_LOGIC;
+         pcsrc:             in  STD_LOGIC;
          alusrc, regdst:    in  STD_LOGIC;
          jump:              in  STD_LOGIC;
          op:                in  STD_LOGIC_VECTOR(2 downto 0); -- rs signal (before it was alucontrol)
@@ -42,6 +43,7 @@ architecture struct of mips is
          result:            out STD_LOGIC_VECTOR(31 downto 0);
          q_dst_out:         out STD_LOGIC_VECTOR(2 downto 0);
          op_sent:           out STD_LOGIC;
+         memwrite_out:      out STD_LOGIC;
          rs_counter:        out UNSIGNED(2 downto 0));
   end component;
   component regfile
@@ -89,6 +91,7 @@ architecture struct of mips is
   end component;
 
   signal memtoreg1, memtoreg2, memtoreg3, alusrc1, alusrc2, alusrc3: STD_LOGIC;
+  signal memwrite1, memwrite2, memwrite3: STD_LOGIC;
   signal regdst1, regdst2, regdst3, regwrite1, regwrite2, regwrite3, regwrite: STD_LOGIC;
   signal jump1, jump2, jump3, pcsrc1, pcsrc2, pcsrc3: STD_LOGIC;
   signal immsrc1, immsrc2, immsrc3, zero1, zero2, zero3: STD_LOGIC;
@@ -130,9 +133,9 @@ begin
                              regdst1, regwrite1, jump1, alucontrol1, immsrc1);
 
   dp1: datapath port map(clk, reset, new_item1, q_dst, qj, qk, cdb_q_broad, cdb_data_broad,
-                         memtoreg1, pcsrc1, alusrc1, regdst1, jump1, alucontrol1,
+                         memtoreg1, memwrite1, pcsrc1, alusrc1, regdst1, jump1, alucontrol1,
                          immsrc1, zero1, vj, writedata, pc1, instr, aluout1,
-                         readdata1, reg_dst, result1, cdb_q1, alu1, rs_counter1);
+                         readdata1, reg_dst, result1, cdb_q1, alu1, memwrite1_out, rs_counter1);
 
   -- processor 2
   cont2: controller port map(instr(31 downto 26), instr(5 downto 0),
@@ -140,9 +143,9 @@ begin
                              regdst2, regwrite2, jump2, alucontrol2, immsrc2);
 
   dp2: datapath port map(clk, reset, new_item2, q_dst, qj, qk, cdb_q_broad, cdb_data_broad,
-                         memtoreg2, pcsrc2, alusrc2, regdst2, jump2, alucontrol2,
+                         memtoreg2, memwrite2, pcsrc2, alusrc2, regdst2, jump2, alucontrol2,
                          immsrc2, zero2, vj, writedata, pc2, instr, aluout2,
-                         readdata2, reg_dst, result2, cdb_q2, alu2, rs_counter2);
+                         readdata2, reg_dst, result2, cdb_q2, alu2, memwrite2_out, rs_counter2);
 
   -- processor 3
   cont3: controller port map(instr(31 downto 26), instr(5 downto 0),
@@ -150,7 +153,7 @@ begin
                              regdst3, regwrite3, jump3, alucontrol3, immsrc3);
 
   dp3: datapath port map(clk, reset, new_item3, q_dst, qj, qk, cdb_q_broad, cdb_data_broad,
-                         memtoreg3, pcsrc3, alusrc3, regdst3, jump3, alucontrol3,
+                         memtoreg3, memwrite3, pcsrc3, alusrc3, regdst3, jump3, alucontrol3,
                          immsrc3, zero3, vj, writedata, pc3, instr, aluout3,
-                         readdata3, reg_dst, result3, cdb_q3, alu3, rs_counter3);
+                         readdata3, reg_dst, result3, cdb_q3, alu3, memwrite3_out, rs_counter3);
 end;

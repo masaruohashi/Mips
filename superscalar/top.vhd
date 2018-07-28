@@ -11,7 +11,7 @@ architecture test of top is
     port(clk, reset:                      in  STD_LOGIC;
          pc1, pc2, pc3:                   out STD_LOGIC_VECTOR(31 downto 0);
          instr:                           in  STD_LOGIC_VECTOR(31 downto 0);
-         memwrite1, memwrite2, memwrite3: out STD_LOGIC;
+         memwrite1_out, memwrite2_out, memwrite3_out: out STD_LOGIC;
          aluout1, aluout2, aluout3:       out STD_LOGIC_VECTOR(31 downto 0);
          writedata:                       out STD_LOGIC_VECTOR(31 downto 0);
          readdata1, readdata2, readdata3: in  STD_LOGIC_VECTOR(31 downto 0));

@@ -6,7 +6,8 @@ entity datapath is  -- MIPS datapath
        q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- rs signals
        cdb_q:             in  STD_LOGIC_VECTOR(2 downto 0); -- rs signals
        cdb_data:          in  STD_LOGIC_VECTOR(31 downto 0); -- rs signals
-       memtoreg, pcsrc:   in  STD_LOGIC;
+       memtoreg, memwrite:in  STD_LOGIC;
+       pcsrc:             in  STD_LOGIC;
        alusrc, regdst:    in  STD_LOGIC;
        jump:              in  STD_LOGIC;
        op:                in  STD_LOGIC_VECTOR(2 downto 0); -- rs signal (before it was alucontrol)
@@ -21,23 +22,24 @@ entity datapath is  -- MIPS datapath
        result:            out STD_LOGIC_VECTOR(31 downto 0);
        q_dst_out:         out STD_LOGIC_VECTOR(2 downto 0);
        op_sent:           out STD_LOGIC;
+       memwrite_out:      out STD_LOGIC;
        rs_counter:        out UNSIGNED(2 downto 0));
 end;
 
 architecture struct of datapath is
   component reservation_station generic (num_rs: integer);
-    port(clk, reset, new_item: in STD_LOGIC;
-         memtoreg_in:          in STD_LOGIC;
-         q_dst, qj, qk:        in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
-         vj_in, vk_in:         in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
-         op_in:                in STD_LOGIC_VECTOR(2 downto 0);
-         cdb_q:                in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
-         cdb_data:             in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
-         q_dst_out, op_out:    out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
-         vj_out, vk_out:       out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
-         op_sent:              out STD_LOGIC;
-         memtoreg_out:         out STD_LOGIC;
-         counter:              buffer UNSIGNED(2 downto 0));
+    port(clk, reset, new_item:       in STD_LOGIC;
+         memtoreg_in, memwrite_in:   in STD_LOGIC;
+         q_dst, qj, qk:              in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
+         vj_in, vk_in:               in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
+         op_in:                      in STD_LOGIC_VECTOR(2 downto 0);
+         cdb_q:                      in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
+         cdb_data:                   in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
+         q_dst_out, op_out:          out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
+         vj_out, vk_out:             out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
+         op_sent:                    out STD_LOGIC;
+         memtoreg_out, memwrite_out: out STD_LOGIC;
+         counter:                    buffer UNSIGNED(2 downto 0));
   end component;
   component alu
     port(a, b:       in  STD_LOGIC_VECTOR(31 downto 0);
@@ -104,9 +106,9 @@ begin
   srcbmux: mux2 generic map(32) port map(writedata, imm, alusrc,
                                          vk);
 
-  rs: reservation_station generic map(2) port map(clk, reset, new_item, memtoreg, q_dst, qj, qk,
-                                                  vj, vk, op, cdb_q, cdb_data, q_dst_out,
-                                                  alucontrol, srca, srcb, op_sent, memtoreg_out, rs_counter);
+  rs: reservation_station generic map(2) port map(clk, reset, new_item, memtoreg, memwrite, q_dst, qj, qk,
+                                                  vj, vk, op, cdb_q, cdb_data, q_dst_out, alucontrol, srca,
+                                                  srcb, op_sent, memtoreg_out, memwrite_out, rs_counter);
 
   -- ALU logic
   mainalu: alu port map(srca, srcb, alucontrol, aluout, zero);

@@ -3,18 +3,18 @@ use IEEE.STD_LOGIC_ARITH.all;
 
 entity reservation_station is -- reservation station for alu
   generic(num_rs: integer);
-  port(clk, reset, new_item: in STD_LOGIC;
-       memtoreg_in:          in STD_LOGIC;
-       q_dst, qj, qk:        in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
-       vj_in, vk_in:         in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
-       op_in:                in STD_LOGIC_VECTOR(2 downto 0);
-       cdb_q:                in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
-       cdb_data:             in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
-       q_dst_out, op_out:    out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
-       vj_out, vk_out:       out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
-       op_sent:              out STD_LOGIC;
-       memtoreg_out:         out STD_LOGIC;
-       counter:              buffer UNSIGNED(2 downto 0));
+  port(clk, reset, new_item:       in STD_LOGIC;
+       memtoreg_in, memwrite_in:   in STD_LOGIC;
+       q_dst, qj, qk:              in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
+       vj_in, vk_in:               in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
+       op_in:                      in STD_LOGIC_VECTOR(2 downto 0);
+       cdb_q:                      in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
+       cdb_data:                   in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
+       q_dst_out, op_out:          out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
+       vj_out, vk_out:             out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
+       op_sent:                    out STD_LOGIC;
+       memtoreg_out, memwrite_out: out STD_LOGIC;
+       counter:                    buffer UNSIGNED(2 downto 0));
 end;
 
 architecture behave of reservation_station is
@@ -22,6 +22,7 @@ architecture behave of reservation_station is
     record
       busy:          STD_LOGIC;
       memtoreg:      STD_LOGIC;
+      memwrite:      STD_LOGIC;
       op:            STD_LOGIC_VECTOR(2 downto 0);
       q_dst, qj, qk: STD_LOGIC_VECTOR(2 downto 0);
       vj, vk:        STD_LOGIC_VECTOR(31 downto 0);
@@ -54,6 +55,7 @@ begin
         vj_out <= (others => '0');
         vk_out <= (others => '0');
         memtoreg_out <= '0';
+        memwrite_out <= '0';
       end loop l1;
     elsif (clk'event and clk = '1') then
 
@@ -68,6 +70,7 @@ begin
           rs(i).qj <= qj;
           rs(i).qk <= qk;
           rs(i).memtoreg <= memtoreg_in;
+          rs(i).memwrite <= memwrite_in;
           counter <= counter + 1;
           exit;
         end if;
@@ -83,6 +86,9 @@ begin
           s_op_sent <= '1';
           s_q_dst_sent <= rs(i).q_dst;
           memtoreg_out <= rs(i).memtoreg;
+          memwrite_out <= rs(i).memwrite;
+          rs(i).memtoreg <= '0';
+          rs(i).memwrite <= '0';
           counter <= counter - 1;
         end if;
       end loop l2;
