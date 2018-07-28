@@ -45,14 +45,14 @@ architecture struct of mips is
          rs_counter:        out UNSIGNED(2 downto 0));
   end component;
   component regfile
-  port(clk:           in  STD_LOGIC;
-       we1, we2, we3: in  STD_LOGIC;
-       ra:            in  STD_LOGIC_VECTOR(4 downto 0);
-       rb:            in  STD_LOGIC_VECTOR(4 downto 0);
-       wa1, wa2, wa3: in  STD_LOGIC_VECTOR(4 downto 0);
-       wd1, wd2, wd3: in  STD_LOGIC_VECTOR(31 downto 0);
-       rad:           out STD_LOGIC_VECTOR(31 downto 0);
-       rbd:           out STD_LOGIC_VECTOR(31 downto 0));
+    port(clk: in  STD_LOGIC;
+         we:  in  STD_LOGIC;                      -- we  -> write enable
+         ra:  in  STD_LOGIC_VECTOR(4 downto 0);   -- ra  -> register a
+         rb:  in  STD_LOGIC_VECTOR(4 downto 0);   -- rb  -> register b
+         wa:  in  STD_LOGIC_VECTOR(4 downto 0);   -- wa  -> write address (register)
+         wd:  in  STD_LOGIC_VECTOR(31 downto 0);  -- wd  -> write data
+         rad: out STD_LOGIC_VECTOR(31 downto 0);  -- rad -> register a data
+         rbd: out STD_LOGIC_VECTOR(31 downto 0)); -- rbd -> register b data
   end component;
   component reorder_buffer
     port(clk, reset:          in STD_LOGIC;
@@ -60,6 +60,10 @@ architecture struct of mips is
          cdb_data:            in STD_LOGIC_VECTOR(31 downto 0);
          cdb_q:               in STD_LOGIC_VECTOR(2 downto 0);
          q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);
+         qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0);
+         qj_valid, qk_valid:  out STD_LOGIC;
+         reg_write_en:        out STD_LOGIC;
+         reg_out:             out STD_LOGIC_VECTOR(4 downto 0);
          data_out:            out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component common_databus
@@ -78,15 +82,20 @@ architecture struct of mips is
     port(a0, a1, a2: in  UNSIGNED(2 downto 0);
          s:          out STD_LOGIC_VECTOR(1 downto 0));
   end component;
+  component mux2 generic(width: integer);
+    port(d0, d1: in  STD_LOGIC_VECTOR(width-1 downto 0);
+         s:      in  STD_LOGIC;
+         y:      out STD_LOGIC_VECTOR(width-1 downto 0));
+  end component;
 
   signal memtoreg1, memtoreg2, memtoreg3, alusrc1, alusrc2, alusrc3: STD_LOGIC;
-  signal regdst1, regdst2, regdst3, regwrite1, regwrite2, regwrite3: STD_LOGIC;
+  signal regdst1, regdst2, regdst3, regwrite1, regwrite2, regwrite3, regwrite: STD_LOGIC;
   signal jump1, jump2, jump3, pcsrc1, pcsrc2, pcsrc3: STD_LOGIC;
   signal immsrc1, immsrc2, immsrc3, zero1, zero2, zero3: STD_LOGIC;
   signal alucontrol1, alucontrol2, alucontrol3: STD_LOGIC_VECTOR(2 downto 0);
-  signal writereg1, writereg2, writereg3: STD_LOGIC_VECTOR(4 downto 0);
+  signal writereg, reg_dst: STD_LOGIC_VECTOR(4 downto 0);
   signal vj: STD_LOGIC_VECTOR(31 downto 0);
-  signal result1, result2, result3: STD_LOGIC_VECTOR(31 downto 0);
+  signal regdata, result1, result2, result3: STD_LOGIC_VECTOR(31 downto 0);
   signal rs_counter1, rs_counter2, rs_counter3: UNSIGNED(2 downto 0);
   signal sel: STD_LOGIC_VECTOR(1 downto 0);
 
@@ -96,16 +105,19 @@ architecture struct of mips is
   signal cdb_data1, cdb_data2, cdb_data3, cdb_data_broad: STD_LOGIC_VECTOR(31 downto 0);
   signal cdb_q1, cdb_q2, cdb_q3, cdb_q_broad: STD_LOGIC_VECTOR(2 downto 0);
   signal alu1, alu2, alu3: STD_LOGIC;
+  signal rob_qj_data, rob_qk_data, rf_qj_data, rf_qk_data: STD_LOGIC_VECTOR(31 downto 0);
+  signal rob_qj_valid, rob_qk_valid: STD_LOGIC;
 
 begin
-  rf: regfile port map(clk, regwrite1, regwrite2, regwrite3,     -- write enables
-                       instr(25 downto 21), instr(20 downto 16), -- register a and b
-                       writereg1, writereg2, writereg3,          -- write address
-                       result1, result2, result3,                -- write data
-                       vj, writedata);                          -- register a and b data
+  rf: regfile port map(clk, regwrite, instr(25 downto 21), instr(20 downto 16),
+                       writereg, regdata, rf_qj_data, rf_qk_data);
 
-  rob: reorder_buffer port map(clk, reset, writereg1, instr(25 downto 21), instr(20 downto 16),
-                               cdb_data_broad, cdb_q_broad, q_dst, qj, qk, open);
+  muxqj: mux2 generic map (32) port map (rf_qj_data, rob_qj_data, rob_qj_valid, vj);
+  muxqk: mux2 generic map (32) port map (rf_qk_data, rob_qk_data, rob_qk_valid, writedata);
+
+  rob: reorder_buffer port map(clk, reset, reg_dst, instr(25 downto 21), instr(20 downto 16),
+                               cdb_data_broad, cdb_q_broad, q_dst, qj, qk, rob_qj_data, rob_qk_data,
+                               rob_qj_valid, rob_qk_valid, regwrite, writereg, regdata);
 
   cdb: common_databus port map(clk, reset, cdb_q1, cdb_q2, cdb_q3,
                                result1, result2, result3, alu1,
@@ -120,7 +132,7 @@ begin
   dp1: datapath port map(clk, reset, new_item1, q_dst, qj, qk, cdb_q_broad, cdb_data_broad,
                          memtoreg1, pcsrc1, alusrc1, regdst1, jump1, alucontrol1,
                          immsrc1, zero1, vj, writedata, pc1, instr, aluout1,
-                         readdata1, writereg1, result1, cdb_q1, alu1, rs_counter1);
+                         readdata1, reg_dst, result1, cdb_q1, alu1, rs_counter1);
 
   -- processor 2
   cont2: controller port map(instr(31 downto 26), instr(5 downto 0),
@@ -130,7 +142,7 @@ begin
   dp2: datapath port map(clk, reset, new_item2, q_dst, qj, qk, cdb_q_broad, cdb_data_broad,
                          memtoreg2, pcsrc2, alusrc2, regdst2, jump2, alucontrol2,
                          immsrc2, zero2, vj, writedata, pc2, instr, aluout2,
-                         readdata2, writereg2, result2, cdb_q2, alu2, rs_counter2);
+                         readdata2, reg_dst, result2, cdb_q2, alu2, rs_counter2);
 
   -- processor 3
   cont3: controller port map(instr(31 downto 26), instr(5 downto 0),
@@ -140,5 +152,5 @@ begin
   dp3: datapath port map(clk, reset, new_item3, q_dst, qj, qk, cdb_q_broad, cdb_data_broad,
                          memtoreg3, pcsrc3, alusrc3, regdst3, jump3, alucontrol3,
                          immsrc3, zero3, vj, writedata, pc3, instr, aluout3,
-                         readdata3, writereg3, result3, cdb_q3, alu3, rs_counter3);
+                         readdata3, reg_dst, result3, cdb_q3, alu3, rs_counter3);
 end;

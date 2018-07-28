@@ -2,14 +2,14 @@ library IEEE; use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD_UNSIGNED.all;
 
 entity regfile is -- nine-port register file (for 3-way superscalar)
-  port(clk:           in  STD_LOGIC;
-       we1, we2, we3: in  STD_LOGIC;                      -- we  -> write enable
-       ra:            in  STD_LOGIC_VECTOR(4 downto 0);   -- ra  -> register a
-       rb:            in  STD_LOGIC_VECTOR(4 downto 0);   -- rb  -> register b
-       wa1, wa2, wa3: in  STD_LOGIC_VECTOR(4 downto 0);   -- wa  -> write address (register)
-       wd1, wd2, wd3: in  STD_LOGIC_VECTOR(31 downto 0);  -- wd  -> write data
-       rad:           out STD_LOGIC_VECTOR(31 downto 0);  -- rad -> register a data
-       rbd:           out STD_LOGIC_VECTOR(31 downto 0)); -- rbd -> register b data
+  port(clk: in  STD_LOGIC;
+       we:  in  STD_LOGIC;                      -- we  -> write enable
+       ra:  in  STD_LOGIC_VECTOR(4 downto 0);   -- ra  -> register a
+       rb:  in  STD_LOGIC_VECTOR(4 downto 0);   -- rb  -> register b
+       wa:  in  STD_LOGIC_VECTOR(4 downto 0);   -- wa  -> write address (register)
+       wd:  in  STD_LOGIC_VECTOR(31 downto 0);  -- wd  -> write data
+       rad: out STD_LOGIC_VECTOR(31 downto 0);  -- rad -> register a data
+       rbd: out STD_LOGIC_VECTOR(31 downto 0)); -- rbd -> register b data
 end;
 
 architecture behave of regfile is
@@ -24,13 +24,7 @@ begin
   -- on falling edge of clk
   process(clk) begin
     if rising_edge(clk) then
-       if we1 = '1' then mem(to_integer(wa1)) <= wd1;
-       end if;
-
-       if we2 = '1' then mem(to_integer(wa2)) <= wd2;
-       end if;
-
-       if we3 = '1' then mem(to_integer(wa3)) <= wd3;
+       if we = '1' then mem(to_integer(wa)) <= wd;
        end if;
     end if;
   end process;

@@ -66,20 +66,6 @@ begin
           counter <= counter + 1;
           exit;
         end if;
-      end loop l2;
-
-      l3: for i in 0 to num_rs - 1 loop
-        -- snoop for cdb
-        if (rs(i).busy = '1') then
-          if (rs(i).qj = cdb_q) then  -- if there is a required data on cdb
-            rs(i).vj <= cdb_data;
-            rs(i).qj <= "111"; -- clear qj
-          end if;
-          if (rs(i).qk = cdb_q) then  -- if there is a required data on cdb
-            rs(i).vk <= cdb_data;
-            rs(i).qk <= "111"; -- clear qk
-          end if;
-        end if;
 
         --send data to ALU
         -- if all datas are ready and we don't have any data being calculated at FU
@@ -93,7 +79,7 @@ begin
           s_q_dst_sent <= rs(i).q_dst;
           counter <= counter - 1;
         end if;
-      end loop l3;
+      end loop l2;
 
       -- clear op_sent if instruction already executed
       if (cdb_q = s_q_dst_sent and s_q_dst_sent /= "111") then
@@ -103,5 +89,18 @@ begin
 
     end if;
 
+    l3: for i in 0 to num_rs - 1 loop
+      -- snoop for cdb
+      if (rs(i).busy = '1') then
+        if (rs(i).qj = cdb_q and cdb_q /= "111") then  -- if there is a required data on cdb
+          rs(i).vj <= cdb_data;
+          rs(i).qj <= "111"; -- clear qj
+        end if;
+        if (rs(i).qk = cdb_q and cdb_q /= "111") then  -- if there is a required data on cdb
+          rs(i).vk <= cdb_data;
+          rs(i).qk <= "111"; -- clear qk
+        end if;
+      end if;
+    end loop l3;
   end process;
 end;

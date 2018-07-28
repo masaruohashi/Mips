@@ -15,12 +15,14 @@ architecture behave of common_databus is
     signal last: STD_LOGIC_VECTOR(1 downto 0) := "10";
     signal output_sel: STD_LOGIC_VECTOR(1 downto 0) := "11";
 begin
-  process (alu1, alu2, alu3)
+  process (clk, alu1, alu2, alu3)
   begin
 
     if (reset = '1') then
       last <= "10";
       output_sel <= "11";
+      cdb_data_out <= (others => '0');
+      cdb_q_out <= (others => '1');
     else
       -- these if's are for controling if there are more than one alu sending data
       if (alu1 = '1' and alu2 = '1' and alu3 = '1') then
@@ -72,16 +74,15 @@ begin
         last <= "11";
       end if;
     end if;
+    cdb_data_out <= cdb_data1 when output_sel = "00" else
+                    cdb_data2 when output_sel = "01" else
+                    cdb_data3 when output_sel = "10" else
+                    (others => '0');
 
+    cdb_q_out <= cdb_q1 when output_sel = "00" else
+                  cdb_q2 when output_sel = "01" else
+                  cdb_q3 when output_sel = "10" else
+                  (others => '1');
   end process;
 
-  cdb_data_out <= cdb_data1 when output_sel = "00" else
-                  cdb_data2 when output_sel = "01" else
-                  cdb_data3 when output_sel = "10" else
-                  (others => '0');
-
-  cdb_q_out <= cdb_q1 when output_sel = "00" else
-                cdb_q2 when output_sel = "01" else
-                cdb_q3 when output_sel = "10" else
-                (others => '1');
 end;

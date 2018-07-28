@@ -2,11 +2,15 @@ library IEEE; use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.ALL;
 
 entity reorder_buffer is -- reorder buffer
-  port(clk, reset:          in STD_LOGIC;
-       reg_dst, reg1, reg2: in STD_LOGIC_VECTOR(4 downto 0);
-       cdb_data:            in STD_LOGIC_VECTOR(31 downto 0);
-       cdb_q:               in STD_LOGIC_VECTOR(2 downto 0);
+  port(clk, reset:          in  STD_LOGIC;
+       reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0);
+       cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0);
+       cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);
        q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);
+       qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0);
+       qj_valid, qk_valid:  out STD_LOGIC;
+       reg_write_en:        out STD_LOGIC;
+       reg_out:             out STD_LOGIC_VECTOR(4 downto 0);
        data_out:            out STD_LOGIC_VECTOR(31 downto 0));
 end;
 
@@ -45,6 +49,12 @@ begin
         q_dst <= (others => '0');
         qj <= (others => '1');
         qk <= (others => '1');
+        qj_data <= (others => '0');
+        qk_data <= (others => '0');
+        qj_valid <= '0';
+        qk_valid <= '0';
+        reg_out <= (others => '0');
+        data_out <= (others => '0');
       end loop l1;
     elsif (clk'event and clk = '1') then
 
@@ -60,23 +70,18 @@ begin
         s_counter <= s_counter + 1;
       end if;
 
+      reg_write_en <= rob(to_integer(unsigned(head))).valid;
 
-      l2: for i in 0 to 6 loop
-        qj <= (others => '1');  -- 111 indicates that there is no dependencies
-        qk <= (others => '1');
-        if (rob(i).reg_dst = reg1 and reg1 /= "00000") then
-          qj <= std_logic_vector(to_unsigned(i, qj'length));
-        end if;
-        if (rob(i).reg_dst = reg2 and reg2 /= "00000") then
-          qk <= std_logic_vector(to_unsigned(i, qk'length));
-        end if;
-      end loop l2;
-
-      -- increment header
+      -- remove item from buffer if its ready and its the header
       if (rob(to_integer(unsigned(head))).valid = '1') then
         s_counter <= s_counter - 1;
-        rob(to_integer(unsigned(head))).reg_dst <= (others => '0');
+
+        data_out <= rob(to_integer(unsigned(head))).data;
         rob(to_integer(unsigned(head))).data <= (others => '0');
+
+        reg_out <= rob(to_integer(unsigned(head))).reg_dst;
+        rob(to_integer(unsigned(head))).reg_dst <= (others => '0');
+
         rob(to_integer(unsigned(head))).valid <= '0';
         if (head = 6) then
           head <= (others => '0');
@@ -93,6 +98,20 @@ begin
 
     end if;
 
+      qj <= "111";
+      qk <= "111";
+      l2: for i in 0 to 6 loop
+        if (rob(i).reg_dst = reg1 and reg1 /= "00000") then
+          qj <= std_logic_vector(to_unsigned(i, qj'length));
+          qj_data <= rob(i).data;
+          qj_valid <= rob(i).valid;
+        end if;
+        if (rob(i).reg_dst = reg2 and reg2 /= "00000") then
+          qk <= std_logic_vector(to_unsigned(i, qk'length));
+          qk_data <= rob(i).data;
+          qk_valid <= rob(i).valid;
+        end if;
+      end loop l2;
 
   end process;
 end;
