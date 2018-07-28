@@ -4,6 +4,7 @@ use IEEE.STD_LOGIC_ARITH.all;
 entity reservation_station is -- reservation station for alu
   generic(num_rs: integer);
   port(clk, reset, new_item: in STD_LOGIC;
+       memtoreg_in:          in STD_LOGIC;
        q_dst, qj, qk:        in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
        vj_in, vk_in:         in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
        op_in:                in STD_LOGIC_VECTOR(2 downto 0);
@@ -12,6 +13,7 @@ entity reservation_station is -- reservation station for alu
        q_dst_out, op_out:    out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
        vj_out, vk_out:       out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
        op_sent:              out STD_LOGIC;
+       memtoreg_out:         out STD_LOGIC;
        counter:              buffer UNSIGNED(2 downto 0));
 end;
 
@@ -19,6 +21,7 @@ architecture behave of reservation_station is
   type entry is
     record
       busy:          STD_LOGIC;
+      memtoreg:      STD_LOGIC;
       op:            STD_LOGIC_VECTOR(2 downto 0);
       q_dst, qj, qk: STD_LOGIC_VECTOR(2 downto 0);
       vj, vk:        STD_LOGIC_VECTOR(31 downto 0);
@@ -50,6 +53,7 @@ begin
         op_out <= (others => '0');
         vj_out <= (others => '0');
         vk_out <= (others => '0');
+        memtoreg_out <= '0';
       end loop l1;
     elsif (clk'event and clk = '1') then
 
@@ -63,6 +67,7 @@ begin
           rs(i).q_dst <= q_dst;
           rs(i).qj <= qj;
           rs(i).qk <= qk;
+          rs(i).memtoreg <= memtoreg_in;
           counter <= counter + 1;
           exit;
         end if;
@@ -77,6 +82,7 @@ begin
           rs(i).busy <= '0';
           s_op_sent <= '1';
           s_q_dst_sent <= rs(i).q_dst;
+          memtoreg_out <= rs(i).memtoreg;
           counter <= counter - 1;
         end if;
       end loop l2;

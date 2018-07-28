@@ -27,6 +27,7 @@ end;
 architecture struct of datapath is
   component reservation_station generic (num_rs: integer);
     port(clk, reset, new_item: in STD_LOGIC;
+         memtoreg_in:          in STD_LOGIC;
          q_dst, qj, qk:        in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
          vj_in, vk_in:         in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
          op_in:                in STD_LOGIC_VECTOR(2 downto 0);
@@ -35,6 +36,7 @@ architecture struct of datapath is
          q_dst_out, op_out:    out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
          vj_out, vk_out:       out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
          op_sent:              out STD_LOGIC;
+         memtoreg_out:         out STD_LOGIC;
          counter:              buffer UNSIGNED(2 downto 0));
   end component;
   component alu
@@ -76,6 +78,7 @@ architecture struct of datapath is
   signal signimm, unsignimm, imm, immsh: STD_LOGIC_VECTOR(31 downto 0);
   signal srcb, srca, vk: STD_LOGIC_VECTOR(31 downto 0);
   signal alucontrol: STD_LOGIC_VECTOR(2 downto 0);
+  signal memtoreg_out: STD_LOGIC;
 begin
   -- next PC logic
   pcjump <= pcplus4(31 downto 28) & instr(25 downto 0) & "00";
@@ -91,7 +94,7 @@ begin
                                       instr(15 downto 11),
                                       regdst, writereg);
   resmux: mux2 generic map(32) port map(aluout, readdata,
-                                        memtoreg, result);
+                                        memtoreg_out, result);
   se: signext port map(instr(15 downto 0), signimm);
   us: unsignext port map(instr(15 downto 0), unsignimm);
 
@@ -101,9 +104,9 @@ begin
   srcbmux: mux2 generic map(32) port map(writedata, imm, alusrc,
                                          vk);
 
-  rs: reservation_station generic map(2) port map(clk, reset, new_item, q_dst, qj, qk,
+  rs: reservation_station generic map(2) port map(clk, reset, new_item, memtoreg, q_dst, qj, qk,
                                                   vj, vk, op, cdb_q, cdb_data, q_dst_out,
-                                                  alucontrol, srca, srcb, op_sent, rs_counter);
+                                                  alucontrol, srca, srcb, op_sent, memtoreg_out, rs_counter);
 
   -- ALU logic
   mainalu: alu port map(srca, srcb, alucontrol, aluout, zero);
