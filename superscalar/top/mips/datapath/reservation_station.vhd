@@ -5,13 +5,13 @@ entity reservation_station is -- reservation station for alu
   generic(num_rs: integer);
   port(clk, reset, new_item:       in STD_LOGIC;
        memtoreg_in, memwrite_in:   in STD_LOGIC;
-       q_dst, qj, qk:              in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
-       vj_in, vk_in:               in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
+       q_dst, qj, qk, q_write:     in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
+       vj_in, vk_in, v_write_in:   in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
        op_in:                      in STD_LOGIC_VECTOR(2 downto 0);
        cdb_q:                      in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
        cdb_data:                   in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
        q_dst_out, op_out:          out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
-       vj_out, vk_out:             out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
+       vj_out, vk_out, v_write_out:out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
        op_sent:                    out STD_LOGIC;
        memtoreg_out, memwrite_out: out STD_LOGIC;
        counter:                    buffer UNSIGNED(2 downto 0));
@@ -25,13 +25,16 @@ architecture behave of reservation_station is
       memwrite:      STD_LOGIC;
       op:            STD_LOGIC_VECTOR(2 downto 0);
       q_dst, qj, qk: STD_LOGIC_VECTOR(2 downto 0);
+      q_write:       STD_LOGIC_VECTOR(2 downto 0);
       vj, vk:        STD_LOGIC_VECTOR(31 downto 0);
+      v_write:       STD_LOGIC_VECTOR(31 downto 0);
     end record;
 
   type rs_array is array (num_rs - 1 downto 0) of entry;
 
   signal rs: rs_array;
   signal s_op_sent: STD_LOGIC := '0';  -- this is to control that we send only one op per time to ALU
+  signal store_sent: STD_LOGIC := '0';  -- this is to control when we send an store operation
   signal s_q_dst_sent: STD_LOGIC_VECTOR(2 downto 0) := (others => '1');
 begin
 
@@ -49,11 +52,16 @@ begin
         rs(i).qk <= (others => '1');  -- 111 represents an empty q
         rs(i).vj <= (others => '0');
         rs(i).vk <= (others => '0');
+        rs(i).memtoreg <= '0';
+        rs(i).memwrite <= '0';
+        rs(i).q_write <= (others => '1');
+        rs(i).v_write <= (others => '0');
         counter <= (others => '0');
         q_dst_out <= (others => '1');
         op_out <= (others => '0');
         vj_out <= (others => '0');
         vk_out <= (others => '0');
+        v_write_out <= (others => '0');
         memtoreg_out <= '0';
         memwrite_out <= '0';
       end loop l1;
@@ -71,6 +79,8 @@ begin
           rs(i).qk <= qk;
           rs(i).memtoreg <= memtoreg_in;
           rs(i).memwrite <= memwrite_in;
+          rs(i).q_write <= q_write;
+          rs(i).v_write <= v_write_in;
           counter <= counter + 1;
           exit;
         end if;
@@ -78,6 +88,9 @@ begin
         --send data to ALU
         -- if all datas are ready and we don't have any data being calculated at FU
         if (rs(i).busy = '1' and rs(i).qj = "111" and rs(i).qk = "111" and s_op_sent = '0') then
+          if (rs(i).memwrite = '1') then
+            store_sent <= '1';
+          end if;
           op_out <= rs(i).op;
           vj_out <= rs(i).vj;
           vk_out <= rs(i).vk;
@@ -89,14 +102,18 @@ begin
           memwrite_out <= rs(i).memwrite;
           rs(i).memtoreg <= '0';
           rs(i).memwrite <= '0';
+          v_write_out <= rs(i).v_write;
           counter <= counter - 1;
+
         end if;
       end loop l2;
 
       -- clear op_sent if instruction already executed
-      if (cdb_q = s_q_dst_sent and s_q_dst_sent /= "111") then
+      if ((cdb_q = s_q_dst_sent and s_q_dst_sent /= "111") or store_sent = '1') then
         s_q_dst_sent <= (others => '1');
         s_op_sent <= '0';
+        memtoreg_out <= '0';
+        memwrite_out <= '0';
       end if;
 
     end if;
@@ -111,6 +128,10 @@ begin
         if (rs(i).qk = cdb_q and cdb_q /= "111") then  -- if there is a required data on cdb
           rs(i).vk <= cdb_data;
           rs(i).qk <= "111"; -- clear qk
+        end if;
+        if (rs(i).q_write = cdb_q and cdb_q /= "111") then
+          rs(i).v_write <= cdb_data;
+          rs(i).q_write <= "111";
         end if;
       end if;
     end loop l3;

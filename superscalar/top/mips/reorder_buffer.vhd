@@ -3,13 +3,16 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity reorder_buffer is -- reorder buffer
   port(clk, reset:          in  STD_LOGIC;
-       alusrc:              in  STD_LOGIC;
+       alusrc, memwrite:    in  STD_LOGIC;
        reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0);
        cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0);
        cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);
        q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);
+       q_write:             out STD_LOGIC_VECTOR(2 downto 0);
        qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0);
+       write_data:          out STD_LOGIC_VECTOR(31 downto 0);
        qj_valid, qk_valid:  out STD_LOGIC;
+       write_valid:         out STD_LOGIC;
        reg_write_en:        out STD_LOGIC;
        reg_out:             out STD_LOGIC_VECTOR(4 downto 0);
        data_out:            out STD_LOGIC_VECTOR(31 downto 0));
@@ -50,10 +53,13 @@ begin
         q_dst <= (others => '0');
         qj <= (others => '1');
         qk <= (others => '1');
+        q_write <= (others => '1');
         qj_data <= (others => '0');
         qk_data <= (others => '0');
+        write_data <= (others => '0');
         qj_valid <= '0';
         qk_valid <= '0';
+        write_valid <= '0';
         reg_out <= (others => '0');
         data_out <= (others => '0');
       end loop l1;
@@ -66,9 +72,11 @@ begin
         else
           tail <= tail + 1;
         end if;
-        rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
-        rob(to_integer(unsigned(tail))).valid <= '0';
-        s_counter <= s_counter + 1;
+        if (memwrite /= '1') then  --insert in rob only if it's not an store instruction
+          rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
+          rob(to_integer(unsigned(tail))).valid <= '0';
+          s_counter <= s_counter + 1;
+        end if;
       end if;
 
       reg_write_en <= rob(to_integer(unsigned(head))).valid;
@@ -99,18 +107,31 @@ begin
 
     end if;
 
+    -- here we're checking if any of the operands has a valid value in rob
     qj <= "111";
     qk <= "111";
+    q_write <= "111";
     l2: for i in 0 to 6 loop
       if (rob(i).reg_dst = reg1 and reg1 /= "00000") then
-        qj <= std_logic_vector(to_unsigned(i, qj'length));
+        if (rob(i).valid /= '1') then
+          qj <= std_logic_vector(to_unsigned(i, qj'length));
+        end if;
         qj_data <= rob(i).data;
         qj_valid <= rob(i).valid;
       end if;
       if (rob(i).reg_dst = reg2 and reg2 /= "00000" and alusrc /= '1') then
-        qk <= std_logic_vector(to_unsigned(i, qk'length));
+        if (rob(i).valid /= '1') then
+          qk <= std_logic_vector(to_unsigned(i, qk'length));
+        end if;
         qk_data <= rob(i).data;
         qk_valid <= rob(i).valid;
+      end if;
+      if (rob(i).reg_dst = reg2 and reg2 /= "00000" and memwrite = '1') then
+        if (rob(i).valid /= '1') then
+          q_write <= std_logic_vector(to_unsigned(i, q_write'length));
+        end if;
+        write_data <= rob(i).data;
+        write_valid <= rob(i).valid;
       end if;
     end loop l2;
 

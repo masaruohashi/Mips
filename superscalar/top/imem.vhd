@@ -22,7 +22,7 @@ begin
       mem(i) := (others => '0');
     end loop;
     index := 0;
-    FILE_OPEN(mem_file,"C:\Users\Matheus\Desktop\Workspace\Arq\Mips\memfile.dat", READ_MODE);
+    FILE_OPEN(mem_file,"/home/nishi/Poli/PCS3722/Mips/memfile.dat", READ_MODE);
     while not endfile(mem_file) loop
       readline(mem_file, L);
       result := 0;
