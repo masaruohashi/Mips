@@ -66,13 +66,13 @@ begin
     elsif (clk'event and clk = '1') then
 
       -- insert new instruction in rob
-      if (s_counter /= 6) then
-        if (tail = 6) then
-          tail <= (others => '0');
-        else
-          tail <= tail + 1;
-        end if;
-        if (memwrite /= '1') then  --insert in rob only if it's not an store instruction
+      if (memwrite /= '1') then  --insert in rob only if it's not an store instruction
+        if (s_counter /= 6) then
+          if (tail = 6) then
+            tail <= (others => '0');
+          else
+            tail <= tail + 1;
+          end if;
           rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
           rob(to_integer(unsigned(tail))).valid <= '0';
           s_counter <= s_counter + 1;

@@ -1,13 +1,13 @@
 library IEEE; use IEEE.STD_LOGIC_1164.all; use IEEE.STD_LOGIC_ARITH.all;
 
 entity mips is -- single cycle MIPS processor
-  port(clk, reset:                      in  STD_LOGIC;
-       pc1, pc2, pc3:                   out STD_LOGIC_VECTOR(31 downto 0);
-       instr:                           in  STD_LOGIC_VECTOR(31 downto 0);
-       memwrite1_out, memwrite2_out, memwrite3_out: out STD_LOGIC;
-       aluout1, aluout2, aluout3:       out STD_LOGIC_VECTOR(31 downto 0);
-       v_write_out:                       out STD_LOGIC_VECTOR(31 downto 0);
-       readdata1, readdata2, readdata3: in  STD_LOGIC_VECTOR(31 downto 0));
+  port(clk, reset:   in  STD_LOGIC;
+       pc:           out STD_LOGIC_VECTOR(31 downto 0);
+       instr:        in  STD_LOGIC_VECTOR(31 downto 0);
+       memwrite_out: out STD_LOGIC;
+       dataadr:      out STD_LOGIC_VECTOR(31 downto 0);
+       v_write_out:  out STD_LOGIC_VECTOR(31 downto 0);
+       readdata:     in  STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture struct of mips is
@@ -141,8 +141,8 @@ begin
 
   dp1: datapath port map(clk, reset, new_item1, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg1, memwrite1, pcsrc1, alusrc1, regdst1, jump1, alucontrol1,
-                         immsrc1, zero1, vj, vk, writedata, pc1, instr, aluout1,
-                         readdata1, reg_dst, result1, cdb_q1, alu1, memwrite1_out, v_write_out, rs_counter1);
+                         immsrc1, zero1, vj, vk, writedata, open, instr, dataadr,
+                         readdata, reg_dst, result1, cdb_q1, alu1, memwrite_out, v_write_out, rs_counter1);
 
   -- processor 2
   cont2: controller port map(instr(31 downto 26), instr(5 downto 0),
@@ -151,8 +151,8 @@ begin
 
   dp2: datapath port map(clk, reset, new_item2, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg2, memwrite2, pcsrc2, alusrc2, regdst2, jump2, alucontrol2,
-                         immsrc2, zero2, vj, vk, writedata, pc2, instr, aluout2,
-                         readdata2, reg_dst, result2, cdb_q2, alu2, memwrite2_out, open, rs_counter2);
+                         immsrc2, zero2, vj, vk, writedata, pc, instr, open,
+                         readdata, reg_dst, result2, cdb_q2, alu2, open, open, rs_counter2);
 
   -- processor 3
   cont3: controller port map(instr(31 downto 26), instr(5 downto 0),
@@ -161,6 +161,6 @@ begin
 
   dp3: datapath port map(clk, reset, new_item3, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg3, memwrite3, pcsrc3, alusrc3, regdst3, jump3, alucontrol3,
-                         immsrc3, zero3, vj, vk, writedata, pc3, instr, aluout3,
-                         readdata3, reg_dst, result3, cdb_q3, alu3, memwrite3_out, open, rs_counter3);
+                         immsrc3, zero3, vj, vk, writedata, open, instr, open,
+                         readdata, reg_dst, result3, cdb_q3, alu3, open, open, rs_counter3);
 end;

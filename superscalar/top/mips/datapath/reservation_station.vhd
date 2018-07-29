@@ -38,7 +38,7 @@ architecture behave of reservation_station is
   signal s_q_dst_sent: STD_LOGIC_VECTOR(2 downto 0) := (others => '1');
 begin
 
-  op_sent <= s_op_sent;
+  op_sent <= s_op_sent and (not store_sent);
 
   process (clk)
   begin
@@ -90,11 +90,13 @@ begin
         if (rs(i).busy = '1' and rs(i).qj = "111" and rs(i).qk = "111" and s_op_sent = '0') then
           if (rs(i).memwrite = '1') then
             store_sent <= '1';
+            q_dst_out <= (others => '1');
+          else
+            q_dst_out <= rs(i).q_dst;
           end if;
           op_out <= rs(i).op;
           vj_out <= rs(i).vj;
           vk_out <= rs(i).vk;
-          q_dst_out <= rs(i).q_dst;
           rs(i).busy <= '0';
           s_op_sent <= '1';
           s_q_dst_sent <= rs(i).q_dst;
