@@ -114,4 +114,4 @@ begin
 
   -- ALU logic
   mainalu: alu port map(srca, srcb, alucontrol, aluout, zero);
-end;
+end struct;

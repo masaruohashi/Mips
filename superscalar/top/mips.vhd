@@ -83,7 +83,9 @@ architecture struct of mips is
           cdb_data_out:                    out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component selector
-    port(s:          in  STD_LOGIC_VECTOR(1 downto 0);
+    port(sel1:       in  STD_LOGIC;
+         sel2:       in  STD_LOGIC;
+         sel3:       in  STD_LOGIC;
          d0, d1, d2: out STD_LOGIC);
   end component;
   component compare3
@@ -132,9 +134,10 @@ begin
   cdb: common_databus port map(clk, reset, cdb_q1, cdb_q2, cdb_q3,
                                result1, result2, result3, alu1,
                                alu2, alu3, cdb_q_broad, cdb_data_broad);
-  comp: compare3 port map (rs_counter1, rs_counter2, rs_counter3, sel);
-  sel1: selector port map (sel, new_item1, new_item2, new_item3);
-  -- processor 1
+
+  sel1: selector port map (memtoreg1, memwrite1, jump1, new_item1, new_item2, new_item3);
+
+  -- processor 1 -- load/store instructions
   cont1: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero1, memtoreg1, memwrite1, pcsrc1, alusrc1,
                              regdst1, regwrite1, jump1, alucontrol1, immsrc1);
@@ -144,7 +147,7 @@ begin
                          immsrc1, zero1, vj, vk, writedata, open, instr, dataadr,
                          readdata, reg_dst, result1, cdb_q1, alu1, memwrite_out, v_write_out, rs_counter1);
 
-  -- processor 2
+  -- processor 2 -- branch
   cont2: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero2, memtoreg2, memwrite2, pcsrc2, alusrc2,
                              regdst2, regwrite2, jump2, alucontrol2, immsrc2);
@@ -154,7 +157,7 @@ begin
                          immsrc2, zero2, vj, vk, writedata, pc, instr, open,
                          readdata, reg_dst, result2, cdb_q2, alu2, open, open, rs_counter2);
 
-  -- processor 3
+  -- processor 3 -- ula
   cont3: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero3, memtoreg3, memwrite3, pcsrc3, alusrc3,
                              regdst3, regwrite3, jump3, alucontrol3, immsrc3);
