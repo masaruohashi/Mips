@@ -84,7 +84,9 @@ begin
           counter <= counter + 1;
           exit;
         end if;
+      end loop l2;
 
+      l3: for i in 0 to num_rs - 1 loop
         --send data to ALU
         -- if all datas are ready and we don't have any data being calculated at FU
         if (rs(i).busy = '1' and rs(i).qj = "111" and rs(i).qk = "111" and s_op_sent = '0') then
@@ -106,9 +108,8 @@ begin
           rs(i).memwrite <= '0';
           v_write_out <= rs(i).v_write;
           counter <= counter - 1;
-
         end if;
-      end loop l2;
+      end loop l3;
 
       -- clear op_sent if instruction already executed
       if ((cdb_q = s_q_dst_sent and s_q_dst_sent /= "111") or store_sent = '1') then
@@ -120,7 +121,7 @@ begin
 
     end if;
 
-    l3: for i in 0 to num_rs - 1 loop
+    l4: for i in 0 to num_rs - 1 loop
       -- snoop for cdb
       if (rs(i).busy = '1') then
         if (rs(i).qj = cdb_q and cdb_q /= "111") then  -- if there is a required data on cdb
@@ -136,6 +137,6 @@ begin
           rs(i).q_write <= "111";
         end if;
       end if;
-    end loop l3;
+    end loop l4;
   end process;
 end;

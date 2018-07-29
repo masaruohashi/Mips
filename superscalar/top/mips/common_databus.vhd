@@ -69,6 +69,8 @@ begin
       elsif (alu3 = '1') then
         output_sel <= "10";
         last <= "10";
+      else
+        output_sel <= "11";
       end if;
     end if;
     cdb_data_out <= cdb_data1 when output_sel = "00" else

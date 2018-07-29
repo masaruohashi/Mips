@@ -17,7 +17,7 @@ architecture struct of mips is
          memtoreg, memwrite: out STD_LOGIC;
          pcsrc, alusrc:      out STD_LOGIC;
          regdst, regwrite:   out STD_LOGIC;
-         jump:               out STD_LOGIC;
+         jump, branch:       out STD_LOGIC;
          alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
          immsrc:             out STD_LOGIC);
   end component;
@@ -83,7 +83,8 @@ architecture struct of mips is
           cdb_data_out:                    out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component selector
-    port(sel1:       in  STD_LOGIC;
+    port(instr:      in  STD_LOGIC_VECTOR(31 downto 0);
+         sel1:       in  STD_LOGIC;
          sel2:       in  STD_LOGIC;
          sel3:       in  STD_LOGIC;
          d0, d1, d2: out STD_LOGIC);
@@ -101,7 +102,7 @@ architecture struct of mips is
   signal memtoreg1, memtoreg2, memtoreg3, alusrc1, alusrc2, alusrc3: STD_LOGIC;
   signal memwrite1, memwrite2, memwrite3: STD_LOGIC;
   signal regdst1, regdst2, regdst3, regwrite1, regwrite2, regwrite3, regwrite: STD_LOGIC;
-  signal jump1, jump2, jump3, pcsrc1, pcsrc2, pcsrc3: STD_LOGIC;
+  signal jump1, jump2, jump3, pcsrc1, pcsrc2, pcsrc3, branch: STD_LOGIC;
   signal immsrc1, immsrc2, immsrc3, zero1, zero2, zero3: STD_LOGIC;
   signal alucontrol1, alucontrol2, alucontrol3: STD_LOGIC_VECTOR(2 downto 0);
   signal writereg, reg_dst: STD_LOGIC_VECTOR(4 downto 0);
@@ -135,12 +136,12 @@ begin
                                result1, result2, result3, alu1,
                                alu2, alu3, cdb_q_broad, cdb_data_broad);
 
-  sel1: selector port map (memtoreg1, memwrite1, jump1, new_item1, new_item2, new_item3);
+  sel1: selector port map (instr, memtoreg1, memwrite1, jump2 or branch, new_item1, new_item2, new_item3);
 
   -- processor 1 -- load/store instructions
   cont1: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero1, memtoreg1, memwrite1, pcsrc1, alusrc1,
-                             regdst1, regwrite1, jump1, alucontrol1, immsrc1);
+                             regdst1, regwrite1, jump1, open, alucontrol1, immsrc1);
 
   dp1: datapath port map(clk, reset, new_item1, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg1, memwrite1, pcsrc1, alusrc1, regdst1, jump1, alucontrol1,
@@ -150,7 +151,7 @@ begin
   -- processor 2 -- branch
   cont2: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero2, memtoreg2, memwrite2, pcsrc2, alusrc2,
-                             regdst2, regwrite2, jump2, alucontrol2, immsrc2);
+                             regdst2, regwrite2, jump2, branch, alucontrol2, immsrc2);
 
   dp2: datapath port map(clk, reset, new_item2, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg2, memwrite2, pcsrc2, alusrc2, regdst2, jump2, alucontrol2,
@@ -160,7 +161,7 @@ begin
   -- processor 3 -- ula
   cont3: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero3, memtoreg3, memwrite3, pcsrc3, alusrc3,
-                             regdst3, regwrite3, jump3, alucontrol3, immsrc3);
+                             regdst3, regwrite3, jump3, open, alucontrol3, immsrc3);
 
   dp3: datapath port map(clk, reset, new_item3, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg3, memwrite3, pcsrc3, alusrc3, regdst3, jump3, alucontrol3,
