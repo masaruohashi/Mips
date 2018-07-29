@@ -23,29 +23,29 @@ architecture struct of mips is
   end component;
   component datapath
     port(clk, reset:        in  STD_LOGIC;
-         new_item:          in  STD_LOGIC;  -- rs signals
-         q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- rs signals
-         q_write:           in  STD_LOGIC_VECTOR(2 downto 0);
-         cdb_q:             in  STD_LOGIC_VECTOR(2 downto 0); -- rs signals
-         cdb_data:          in  STD_LOGIC_VECTOR(31 downto 0); -- rs signals
-         memtoreg, memwrite:in  STD_LOGIC;
+         new_item:          in  STD_LOGIC;  -- flag to indicate we need to store in rs
+         q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- tags of operands
+         q_write:           in  STD_LOGIC_VECTOR(2 downto 0);  -- tag of the data to store in dmem
+         cdb_q:             in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from cdb
+         cdb_data:          in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from cdb
+         memtoreg, memwrite:in  STD_LOGIC; --flags to indicate if it's load/store
          pcsrc:             in  STD_LOGIC;
          alusrc, regdst:    in  STD_LOGIC;
          jump:              in  STD_LOGIC;
          op:                in  STD_LOGIC_VECTOR(2 downto 0); -- rs signal (before it was alucontrol)
          immsrc:            in  STD_LOGIC;
          zero:              out STD_LOGIC;
-         vj, vk, writedata: in  STD_LOGIC_VECTOR(31 downto 0);
+         vj, vk, writedata: in  STD_LOGIC_VECTOR(31 downto 0); -- value of operands
          pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
          instr:             in  STD_LOGIC_VECTOR(31 downto 0);
          aluout:            buffer STD_LOGIC_VECTOR(31 downto 0);
          readdata:          in  STD_LOGIC_VECTOR(31 downto 0);
          writereg:          out STD_LOGIC_VECTOR(4 downto 0);
-         result:            out STD_LOGIC_VECTOR(31 downto 0);
-         q_dst_out:         out STD_LOGIC_VECTOR(2 downto 0);
+         result:            out STD_LOGIC_VECTOR(31 downto 0); -- value to send to cdb
+         q_dst_out:         out STD_LOGIC_VECTOR(2 downto 0); --tag to send to cdb
          op_sent:           out STD_LOGIC;
-         memwrite_out:      out STD_LOGIC;
-         v_write_out:       out STD_LOGIC_VECTOR(31 downto 0);
+         memwrite_out:      out STD_LOGIC; -- flag to indicate we have to store in dmem
+         v_write_out:       out STD_LOGIC_VECTOR(31 downto 0); --value to store in dmem
          rs_counter:        out UNSIGNED(2 downto 0));
   end component;
   component regfile
@@ -61,26 +61,26 @@ architecture struct of mips is
   component reorder_buffer
     port(clk, reset:          in  STD_LOGIC;
          alusrc, memwrite:    in  STD_LOGIC;
-         reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0);
-         cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0);
-         cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);
-         q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);
+         reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0); -- operands of instruction
+         cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from common data bus
+         cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from common data bus
+         q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);  -- tag found in reorder buffer for each operand
          q_write:             out STD_LOGIC_VECTOR(2 downto 0);
-         qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0);
+         qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0); -- data of respective tags in reoder buffer
          write_data:          out STD_LOGIC_VECTOR(31 downto 0);
-         qj_valid, qk_valid:  out STD_LOGIC;
+         qj_valid, qk_valid:  out STD_LOGIC; -- flag indicating if the data in reorder buffer are valid
          write_valid:         out STD_LOGIC;
-         reg_write_en:        out STD_LOGIC;
-         reg_out:             out STD_LOGIC_VECTOR(4 downto 0);
-         data_out:            out STD_LOGIC_VECTOR(31 downto 0));
+         reg_write_en:        out STD_LOGIC; --flag indicating we can send data to register file
+         reg_out:             out STD_LOGIC_VECTOR(4 downto 0); -- register which we're going to write
+         data_out:            out STD_LOGIC_VECTOR(31 downto 0)); -- data we're going to write on register
   end component;
   component common_databus
     port (clk, reset:                      in STD_LOGIC;
-          cdb_q1, cdb_q2, cdb_q3:          in STD_LOGIC_VECTOR(2 downto 0);
-          cdb_data1, cdb_data2, cdb_data3: in STD_LOGIC_VECTOR(31 downto 0);
+          cdb_q1, cdb_q2, cdb_q3:          in STD_LOGIC_VECTOR(2 downto 0); --tag coming from each alu
+          cdb_data1, cdb_data2, cdb_data3: in STD_LOGIC_VECTOR(31 downto 0); -- data coming from each alu
           alu1, alu2, alu3:                in STD_LOGIC; --this signal choose which data to out;
-          cdb_q_out:                       out STD_LOGIC_VECTOR(2 downto 0);
-          cdb_data_out:                    out STD_LOGIC_VECTOR(31 downto 0));
+          cdb_q_out:                       out STD_LOGIC_VECTOR(2 downto 0);  --tag common data bus choose
+          cdb_data_out:                    out STD_LOGIC_VECTOR(31 downto 0)); --data common data bus choose
   end component;
   component selector
     port(instr:      in  STD_LOGIC_VECTOR(31 downto 0);

@@ -2,29 +2,29 @@ library IEEE; use IEEE.STD_LOGIC_1164.all; use IEEE.STD_LOGIC_ARITH.all;
 
 entity datapath is  -- MIPS datapath
   port(clk, reset:        in  STD_LOGIC;
-       new_item:          in  STD_LOGIC;  -- rs signals
-       q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- rs signals
-       q_write:           in  STD_LOGIC_VECTOR(2 downto 0);
-       cdb_q:             in  STD_LOGIC_VECTOR(2 downto 0); -- rs signals
-       cdb_data:          in  STD_LOGIC_VECTOR(31 downto 0); -- rs signals
-       memtoreg, memwrite:in  STD_LOGIC;
+       new_item:          in  STD_LOGIC;  -- flag to indicate we need to store in rs
+       q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- tags of operands
+       q_write:           in  STD_LOGIC_VECTOR(2 downto 0);  -- tag of the data to store in dmem
+       cdb_q:             in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from cdb
+       cdb_data:          in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from cdb
+       memtoreg, memwrite:in  STD_LOGIC; --flags to indicate if it's load/store
        pcsrc:             in  STD_LOGIC;
        alusrc, regdst:    in  STD_LOGIC;
        jump:              in  STD_LOGIC;
        op:                in  STD_LOGIC_VECTOR(2 downto 0); -- rs signal (before it was alucontrol)
        immsrc:            in  STD_LOGIC;
        zero:              out STD_LOGIC;
-       vj, vk, writedata: in  STD_LOGIC_VECTOR(31 downto 0);
+       vj, vk, writedata: in  STD_LOGIC_VECTOR(31 downto 0); -- value of operands
        pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
        instr:             in  STD_LOGIC_VECTOR(31 downto 0);
        aluout:            buffer STD_LOGIC_VECTOR(31 downto 0);
        readdata:          in  STD_LOGIC_VECTOR(31 downto 0);
        writereg:          out STD_LOGIC_VECTOR(4 downto 0);
-       result:            out STD_LOGIC_VECTOR(31 downto 0);
-       q_dst_out:         out STD_LOGIC_VECTOR(2 downto 0);
+       result:            out STD_LOGIC_VECTOR(31 downto 0); -- value to send to cdb
+       q_dst_out:         out STD_LOGIC_VECTOR(2 downto 0); --tag to send to cdb
        op_sent:           out STD_LOGIC;
-       memwrite_out:      out STD_LOGIC;
-       v_write_out:       out STD_LOGIC_VECTOR(31 downto 0);
+       memwrite_out:      out STD_LOGIC; -- flag to indicate we have to store in dmem
+       v_write_out:       out STD_LOGIC_VECTOR(31 downto 0); --value to store in dmem
        rs_counter:        out UNSIGNED(2 downto 0));
 end;
 
@@ -32,8 +32,8 @@ architecture struct of datapath is
   component reservation_station generic (num_rs: integer);
     port(clk, reset, new_item:       in STD_LOGIC;
          memtoreg_in, memwrite_in:   in STD_LOGIC;
-         q_dst, qj, qk, q_write:     in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
-         vj_in, vk_in, v_write_in:   in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
+         q_dst, qj, qk, q_write:     in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from rob
+         vj_in, vk_in, v_write_in:   in STD_LOGIC_VECTOR(31 downto 0); -- data of operands
          op_in:                      in STD_LOGIC_VECTOR(2 downto 0);
          cdb_q:                      in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
          cdb_data:                   in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals

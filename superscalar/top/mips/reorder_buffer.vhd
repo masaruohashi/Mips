@@ -4,18 +4,18 @@ use IEEE.NUMERIC_STD.ALL;
 entity reorder_buffer is -- reorder buffer
   port(clk, reset:          in  STD_LOGIC;
        alusrc, memwrite:    in  STD_LOGIC;
-       reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0);
-       cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0);
-       cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);
-       q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);
+       reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0); -- operands of instruction
+       cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from common data bus
+       cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from common data bus
+       q_dst, qj, qk:       out STD_LOGIC_VECTOR(2 downto 0);  -- tag found in reorder buffer for each operand
        q_write:             out STD_LOGIC_VECTOR(2 downto 0);
-       qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0);
+       qj_data, qk_data:    out STD_LOGIC_VECTOR(31 downto 0); -- data of respective tags in reoder buffer
        write_data:          out STD_LOGIC_VECTOR(31 downto 0);
-       qj_valid, qk_valid:  out STD_LOGIC;
+       qj_valid, qk_valid:  out STD_LOGIC; -- flag indicating if the data in reorder buffer are valid
        write_valid:         out STD_LOGIC;
-       reg_write_en:        out STD_LOGIC;
-       reg_out:             out STD_LOGIC_VECTOR(4 downto 0);
-       data_out:            out STD_LOGIC_VECTOR(31 downto 0));
+       reg_write_en:        out STD_LOGIC; --flag indicating we can send data to register file
+       reg_out:             out STD_LOGIC_VECTOR(4 downto 0); -- register which we're going to write
+       data_out:            out STD_LOGIC_VECTOR(31 downto 0)); -- data we're going to write on register
 end;
 
 architecture behave of reorder_buffer is
@@ -29,9 +29,9 @@ architecture behave of reorder_buffer is
 
   type rob_array is array (7 downto 0) of entry;
   signal rob: rob_array;
-  signal head, tail: UNSIGNED(2 downto 0) := (others => '0'); -- aponta para onde a ultima instrucao escrita
+  signal head, tail: UNSIGNED(2 downto 0) := (others => '0'); -- head -> first instruction, tail -> last instruction
   signal s_full: STD_LOGIC := '0';
-  signal s_counter: UNSIGNED(2 downto 0) := (others => '0');  --contador do numero de instrucoes no buffer
+  signal s_counter: UNSIGNED(2 downto 0) := (others => '0');  -- count the number of entries in reorder buffer
 
 begin
 
@@ -40,6 +40,7 @@ begin
   process (clk, cdb_q)
   begin
 
+    -- we always put the new instruction on tail
     q_dst <= std_logic_vector(tail);
 
     if (reset = '1') then
@@ -67,7 +68,7 @@ begin
 
       -- insert new instruction in rob
       if (memwrite /= '1') then  --insert in rob only if it's not an store instruction
-        if (s_counter /= 6) then
+        if (s_counter /= 6) then -- and if it's not full
           if (tail = 6) then
             tail <= (others => '0');
           else
@@ -79,15 +80,18 @@ begin
         end if;
       end if;
 
+      -- we only send data to register file when the head is valid
       reg_write_en <= rob(to_integer(unsigned(head))).valid;
 
       -- remove item from buffer if its ready and its the header
       if (rob(to_integer(unsigned(head))).valid = '1') then
         s_counter <= s_counter - 1;
 
+        -- data to register file
         data_out <= rob(to_integer(unsigned(head))).data;
         rob(to_integer(unsigned(head))).data <= (others => '0');
 
+        -- register which we're going to write
         reg_out <= rob(to_integer(unsigned(head))).reg_dst;
         rob(to_integer(unsigned(head))).reg_dst <= (others => '0');
 
@@ -108,6 +112,7 @@ begin
     end if;
 
     -- here we're checking if any of the operands has a valid value in rob
+    -- and if not, we send the tag in which we can find the data later
     qj <= "111";
     qk <= "111";
     q_write <= "111";
