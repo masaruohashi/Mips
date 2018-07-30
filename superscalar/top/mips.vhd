@@ -64,6 +64,8 @@ architecture struct of mips is
   component reorder_buffer
     port(clk, reset:          in  STD_LOGIC;
          alusrc, memwrite:    in  STD_LOGIC;
+         branch_taken:        in  STD_LOGIC;
+         op:                  in  STD_LOGIC_VECTOR(5 downto 0); -- instruction operation code
          reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0); -- operands of instruction
          cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from common data bus
          cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from common data bus
@@ -132,7 +134,7 @@ begin
   muxqk: mux2 generic map (32) port map (rf_qk_data, rob_qk_data, rob_qk_valid, vk);
   muxwrite: mux2 generic map (32) port map (rf_qk_data, rob_write_data, rob_write_valid, writedata);
 
-  rob: reorder_buffer port map(clk, reset, alusrc1, memwrite1, reg_dst, instr(25 downto 21), instr(20 downto 16),
+  rob: reorder_buffer port map(clk, reset, alusrc1, memwrite1, '1', instr(31 downto 26), reg_dst, instr(25 downto 21), instr(20 downto 16),
                                cdb_data_broad, cdb_q_broad, q_dst, qj, qk, q_write, rob_qj_data, rob_qk_data, rob_write_data,
                                rob_qj_valid, rob_qk_valid, rob_write_valid, regwrite, writereg, regdata);
 
