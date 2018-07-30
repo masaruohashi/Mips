@@ -4,6 +4,8 @@ use IEEE.STD_LOGIC_ARITH.all;
 entity reservation_station is -- reservation station for alu
   generic(num_rs: integer);
   port(clk, reset, new_item:       in STD_LOGIC;
+       branch_in, zerosrc_in:      in STD_LOGIC;
+       pcbranch_in:                in STD_LOGIC_VECTOR(31 downto 0);
        memtoreg_in, memwrite_in:   in STD_LOGIC;
        q_dst, qj, qk, q_write:     in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
        vj_in, vk_in, v_write_in:   in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
@@ -14,6 +16,8 @@ entity reservation_station is -- reservation station for alu
        vj_out, vk_out, v_write_out:out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
        op_sent:                    out STD_LOGIC;
        memtoreg_out, memwrite_out: out STD_LOGIC;
+       branch_out, zerosrc_out:    out STD_LOGIC;
+       pcbranch_out:               out STD_LOGIC_VECTOR(31 downto 0);
        counter:                    buffer UNSIGNED(2 downto 0));
 end;
 
@@ -21,6 +25,8 @@ architecture behave of reservation_station is
   type entry is
     record
       busy:          STD_LOGIC;
+      branch:        STD_LOGIC;
+      zerosrc:       STD_LOGIC;
       memtoreg:      STD_LOGIC;
       memwrite:      STD_LOGIC;
       op:            STD_LOGIC_VECTOR(2 downto 0);
@@ -28,6 +34,7 @@ architecture behave of reservation_station is
       q_write:       STD_LOGIC_VECTOR(2 downto 0);
       vj, vk:        STD_LOGIC_VECTOR(31 downto 0);
       v_write:       STD_LOGIC_VECTOR(31 downto 0);
+      pcbranch:      STD_LOGIC_VECTOR(31 downto 0);
     end record;
 
   type rs_array is array (num_rs - 1 downto 0) of entry;
@@ -56,6 +63,9 @@ begin
         rs(i).memwrite <= '0';
         rs(i).q_write <= (others => '1');
         rs(i).v_write <= (others => '0');
+        rs(i).zerosrc <= '0';
+        rs(i).branch <= '0';
+        rs(i).pcbranch <= (others => '0');
         counter <= (others => '0');
         q_dst_out <= (others => '1');
         op_out <= (others => '0');
@@ -64,6 +74,9 @@ begin
         v_write_out <= (others => '0');
         memtoreg_out <= '0';
         memwrite_out <= '0';
+        zerosrc_out <= '0';
+        branch_out <= '0';
+        pcbranch_out <= (others => '0');
       end loop l1;
     elsif (clk'event and clk = '1') then
 
@@ -81,6 +94,9 @@ begin
           rs(i).memwrite <= memwrite_in;
           rs(i).q_write <= q_write;
           rs(i).v_write <= v_write_in;
+          rs(i).branch <= branch_in;
+          rs(i).zerosrc <= zerosrc_in;
+          rs(i).pcbranch <= pcbranch_in;
           counter <= counter + 1;
           exit;
         end if;
@@ -106,6 +122,12 @@ begin
           memwrite_out <= rs(i).memwrite;
           rs(i).memtoreg <= '0';
           rs(i).memwrite <= '0';
+          zerosrc_out <= rs(i).zerosrc;
+          branch_out <= rs(i).branch;
+          pcbranch_out <= rs(i).pcbranch;
+          rs(i).zerosrc <= '0';
+          rs(i).branch <= '0';
+          rs(i).pcbranch <= (others => '0');
           v_write_out <= rs(i).v_write;
           counter <= counter - 1;
         end if;
@@ -117,6 +139,9 @@ begin
         s_op_sent <= '0';
         memtoreg_out <= '0';
         memwrite_out <= '0';
+        zerosrc_out <= '0';
+        branch_out <= '0';
+        pcbranch_out <= (others => '0');
       end if;
 
     end if;
