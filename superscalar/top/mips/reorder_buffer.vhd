@@ -127,12 +127,13 @@ begin
                 rob(i).valid <= '0';
               end if;
             end loop;
+            tail <= head + 1;
           end if;
         else
           --snoop for cbd
           rob(to_integer(unsigned(cdb_q))).data <= cdb_data;
-          rob(to_integer(unsigned(cdb_q))).valid <= '1';
         end if;
+        rob(to_integer(unsigned(cdb_q))).valid <= '1';
       end if;
 
     end if;
