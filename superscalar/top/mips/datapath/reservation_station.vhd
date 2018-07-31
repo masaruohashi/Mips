@@ -169,6 +169,7 @@ begin
           rs(i).pcbranch <= (others => '0');
           v_write_out <= rs(i).v_write;
           counter <= counter - 1;
+          exit;
         end if;
       end loop l3;
 
