@@ -19,10 +19,13 @@ architecture struct of mips is
          regdst, regwrite:   out STD_LOGIC;
          jump, branch:       out STD_LOGIC;
          alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
+         zerosrc:            out STD_LOGIC;
          immsrc:             out STD_LOGIC);
   end component;
   component datapath
     port(clk, reset:        in  STD_LOGIC;
+         branch:            in  STD_LOGIC;
+         zerosrc:           in  STD_LOGIC;
          new_item:          in  STD_LOGIC;  -- flag to indicate we need to store in rs
          q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- tags of operands
          q_write:           in  STD_LOGIC_VECTOR(2 downto 0);  -- tag of the data to store in dmem
@@ -34,6 +37,9 @@ architecture struct of mips is
          jump:              in  STD_LOGIC;
          op:                in  STD_LOGIC_VECTOR(2 downto 0); -- rs signal (before it was alucontrol)
          immsrc:            in  STD_LOGIC;
+         branch_end:        in  STD_LOGIC;
+         branch_result:     in  STD_LOGIC;
+         start_speculative: in  STD_LOGIC;
          zero:              out STD_LOGIC;
          vj, vk, writedata: in  STD_LOGIC_VECTOR(31 downto 0); -- value of operands
          pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
@@ -46,7 +52,9 @@ architecture struct of mips is
          op_sent:           out STD_LOGIC;
          memwrite_out:      out STD_LOGIC; -- flag to indicate we have to store in dmem
          v_write_out:       out STD_LOGIC_VECTOR(31 downto 0); --value to store in dmem
-         rs_counter:        out UNSIGNED(2 downto 0));
+         rs_counter:        out UNSIGNED(2 downto 0);
+         finish_speculative:out STD_LOGIC;
+         branch_taken:      out STD_LOGIC);
   end component;
   component regfile
     port(clk: in  STD_LOGIC;
@@ -61,6 +69,8 @@ architecture struct of mips is
   component reorder_buffer
     port(clk, reset:          in  STD_LOGIC;
          alusrc, memwrite:    in  STD_LOGIC;
+         branch_taken:        in  STD_LOGIC;
+         op:                  in  STD_LOGIC_VECTOR(5 downto 0); -- instruction operation code
          reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0); -- operands of instruction
          cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from common data bus
          cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from common data bus
@@ -101,6 +111,7 @@ architecture struct of mips is
 
   signal memtoreg1, memtoreg2, memtoreg3, alusrc1, alusrc2, alusrc3: STD_LOGIC;
   signal memwrite1, memwrite2, memwrite3: STD_LOGIC;
+  signal zerosrc: STD_LOGIC;
   signal regdst1, regdst2, regdst3, regwrite1, regwrite2, regwrite3, regwrite: STD_LOGIC;
   signal jump1, jump2, jump3, pcsrc1, pcsrc2, pcsrc3, branch: STD_LOGIC;
   signal immsrc1, immsrc2, immsrc3, zero1, zero2, zero3: STD_LOGIC;
@@ -110,6 +121,7 @@ architecture struct of mips is
   signal regdata, result1, result2, result3, writedata: STD_LOGIC_VECTOR(31 downto 0);
   signal rs_counter1, rs_counter2, rs_counter3: UNSIGNED(2 downto 0);
   signal sel: STD_LOGIC_VECTOR(1 downto 0);
+  signal s_branch_result, s_branch_end: STD_LOGIC;
 
   -- reservation stations signals
   signal new_item1, new_item2, new_item3: STD_LOGIC;
@@ -128,7 +140,7 @@ begin
   muxqk: mux2 generic map (32) port map (rf_qk_data, rob_qk_data, rob_qk_valid, vk);
   muxwrite: mux2 generic map (32) port map (rf_qk_data, rob_write_data, rob_write_valid, writedata);
 
-  rob: reorder_buffer port map(clk, reset, alusrc1, memwrite1, reg_dst, instr(25 downto 21), instr(20 downto 16),
+  rob: reorder_buffer port map(clk, reset, alusrc1, memwrite1, s_branch_result, instr(31 downto 26), reg_dst, instr(25 downto 21), instr(20 downto 16),
                                cdb_data_broad, cdb_q_broad, q_dst, qj, qk, q_write, rob_qj_data, rob_qk_data, rob_write_data,
                                rob_qj_valid, rob_qk_valid, rob_write_valid, regwrite, writereg, regdata);
 
@@ -141,30 +153,30 @@ begin
   -- processor 1 -- load/store instructions
   cont1: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero1, memtoreg1, memwrite1, pcsrc1, alusrc1,
-                             regdst1, regwrite1, jump1, open, alucontrol1, immsrc1);
+                             regdst1, regwrite1, jump1, open, alucontrol1, open, immsrc1);
 
-  dp1: datapath port map(clk, reset, new_item1, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
+  dp1: datapath port map(clk, reset, '0', '0', new_item1, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg1, memwrite1, pcsrc1, alusrc1, regdst1, jump1, alucontrol1,
-                         immsrc1, zero1, vj, vk, writedata, open, instr, dataadr,
-                         readdata, reg_dst, result1, cdb_q1, alu1, memwrite_out, v_write_out, rs_counter1);
+                         immsrc1, s_branch_end, s_branch_result, branch, zero1, vj, vk, writedata, open, instr, dataadr,
+                         readdata, reg_dst, result1, cdb_q1, alu1, memwrite_out, v_write_out, rs_counter1, open, open);
 
   -- processor 2 -- branch
   cont2: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero2, memtoreg2, memwrite2, pcsrc2, alusrc2,
-                             regdst2, regwrite2, jump2, branch, alucontrol2, immsrc2);
+                             regdst2, regwrite2, jump2, branch, alucontrol2, zerosrc, immsrc2);
 
-  dp2: datapath port map(clk, reset, new_item2, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
+  dp2: datapath port map(clk, reset, branch, zerosrc, new_item2, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg2, memwrite2, pcsrc2, alusrc2, regdst2, jump2, alucontrol2,
-                         immsrc2, zero2, vj, vk, writedata, pc, instr, open,
-                         readdata, reg_dst, result2, cdb_q2, alu2, open, open, rs_counter2);
+                         immsrc2, s_branch_end, s_branch_result, branch, zero2, vj, vk, writedata, pc, instr, open,
+                         readdata, reg_dst, result2, cdb_q2, alu2, open, open, rs_counter2, s_branch_end, s_branch_result);
 
   -- processor 3 -- ula
   cont3: controller port map(instr(31 downto 26), instr(5 downto 0),
                              zero3, memtoreg3, memwrite3, pcsrc3, alusrc3,
-                             regdst3, regwrite3, jump3, open, alucontrol3, immsrc3);
+                             regdst3, regwrite3, jump3, open, alucontrol3, open, immsrc3);
 
-  dp3: datapath port map(clk, reset, new_item3, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
+  dp3: datapath port map(clk, reset, '0', '0', new_item3, q_dst, qj, qk, q_write, cdb_q_broad, cdb_data_broad,
                          memtoreg3, memwrite3, pcsrc3, alusrc3, regdst3, jump3, alucontrol3,
-                         immsrc3, zero3, vj, vk, writedata, open, instr, open,
-                         readdata, reg_dst, result3, cdb_q3, alu3, open, open, rs_counter3);
+                         immsrc3, s_branch_end, s_branch_result, branch, zero3, vj, vk, writedata, open, instr, open,
+                         readdata, reg_dst, result3, cdb_q3, alu3, open, open, rs_counter3, open, open);
 end;

@@ -4,6 +4,8 @@ use IEEE.NUMERIC_STD.ALL;
 entity reorder_buffer is -- reorder buffer
   port(clk, reset:          in  STD_LOGIC;
        alusrc, memwrite:    in  STD_LOGIC;
+       branch_taken:        in  STD_LOGIC;
+       op:                  in  STD_LOGIC_VECTOR(5 downto 0); -- instruction operation code
        reg_dst, reg1, reg2: in  STD_LOGIC_VECTOR(4 downto 0); -- operands of instruction
        cdb_data:            in  STD_LOGIC_VECTOR(31 downto 0); -- data coming from common data bus
        cdb_q:               in  STD_LOGIC_VECTOR(2 downto 0);  -- tag coming from common data bus
@@ -22,6 +24,7 @@ architecture behave of reorder_buffer is
 
   type entry is
     record
+      op:      STD_LOGIC_VECTOR(5 downto 0);
       reg_dst: STD_LOGIC_VECTOR(4 downto 0);
       data:    STD_LOGIC_VECTOR(31 downto 0);
       valid:   STD_LOGIC;
@@ -74,7 +77,11 @@ begin
           else
             tail <= tail + 1;
           end if;
-          rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
+          rob(to_integer(unsigned(tail))).op <= op;
+          -- The instruction have a destination only if it isn't a branch instruction
+          if (op /= "000100" and op /= "000101") then
+            rob(to_integer(unsigned(tail))).reg_dst <= reg_dst;
+          end if;
           rob(to_integer(unsigned(tail))).valid <= '0';
           s_counter <= s_counter + 1;
         end if;
@@ -87,15 +94,21 @@ begin
       if (rob(to_integer(unsigned(head))).valid = '1') then
         s_counter <= s_counter - 1;
 
-        -- data to register file
-        data_out <= rob(to_integer(unsigned(head))).data;
+        -- send data if it isn't a branch instruction
+        if (rob(to_integer(unsigned(head))).op /= "000100" and rob(to_integer(unsigned(head))).op /= "000101") then
+          -- data to register file
+          data_out <= rob(to_integer(unsigned(head))).data;
+          -- register which we're going to write
+          reg_out <= rob(to_integer(unsigned(head))).reg_dst;
+        end if;
+
+        -- clear ROB entry
+        rob(to_integer(unsigned(head))).op <= (others => '0');
         rob(to_integer(unsigned(head))).data <= (others => '0');
-
-        -- register which we're going to write
-        reg_out <= rob(to_integer(unsigned(head))).reg_dst;
         rob(to_integer(unsigned(head))).reg_dst <= (others => '0');
-
         rob(to_integer(unsigned(head))).valid <= '0';
+
+        -- set new Head
         if (head = 6) then
           head <= (others => '0');
         else
@@ -104,8 +117,22 @@ begin
       end if;
 
       if (cdb_q /= "111") then
-        --snoop for cbd
-        rob(to_integer(unsigned(cdb_q))).data <= cdb_data;
+        if (rob(to_integer(unsigned(cdb_q))).op = "000100" or rob(to_integer(unsigned(cdb_q))).op = "000101") then
+          if (branch_taken = '1') then
+            l3: for i in 0 to 6 loop
+              if((i < head and i > unsigned(cdb_q)) or (i > head and i > unsigned(cdb_q)) or (i < head and i > unsigned(cdb_q))) then
+                rob(i).op <= (others => '0');
+                rob(i).data <= (others => '0');
+                rob(i).reg_dst <= (others => '0');
+                rob(i).valid <= '0';
+              end if;
+            end loop;
+            tail <= head + 1;
+          end if;
+        else
+          --snoop for cbd
+          rob(to_integer(unsigned(cdb_q))).data <= cdb_data;
+        end if;
         rob(to_integer(unsigned(cdb_q))).valid <= '1';
       end if;
 

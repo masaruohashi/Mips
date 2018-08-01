@@ -2,6 +2,8 @@ library IEEE; use IEEE.STD_LOGIC_1164.all; use IEEE.STD_LOGIC_ARITH.all;
 
 entity datapath is  -- MIPS datapath
   port(clk, reset:        in  STD_LOGIC;
+       branch:            in  STD_LOGIC;
+       zerosrc:           in  STD_LOGIC;
        new_item:          in  STD_LOGIC;  -- flag to indicate we need to store in rs
        q_dst, qj, qk:     in  STD_LOGIC_VECTOR(2 downto 0);  -- tags of operands
        q_write:           in  STD_LOGIC_VECTOR(2 downto 0);  -- tag of the data to store in dmem
@@ -13,6 +15,9 @@ entity datapath is  -- MIPS datapath
        jump:              in  STD_LOGIC;
        op:                in  STD_LOGIC_VECTOR(2 downto 0); -- rs signal (before it was alucontrol)
        immsrc:            in  STD_LOGIC;
+       branch_end:        in  STD_LOGIC;
+       branch_result:     in  STD_LOGIC;
+       start_speculative: in  STD_LOGIC;
        zero:              out STD_LOGIC;
        vj, vk, writedata: in  STD_LOGIC_VECTOR(31 downto 0); -- value of operands
        pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
@@ -25,23 +30,32 @@ entity datapath is  -- MIPS datapath
        op_sent:           out STD_LOGIC;
        memwrite_out:      out STD_LOGIC; -- flag to indicate we have to store in dmem
        v_write_out:       out STD_LOGIC_VECTOR(31 downto 0); --value to store in dmem
-       rs_counter:        out UNSIGNED(2 downto 0));
+       rs_counter:        out UNSIGNED(2 downto 0);
+       finish_speculative:out STD_LOGIC;
+       branch_taken:      out STD_LOGIC);
 end;
 
 architecture struct of datapath is
   component reservation_station generic (num_rs: integer);
     port(clk, reset, new_item:       in STD_LOGIC;
-         memtoreg_in, memwrite_in:   in STD_LOGIC;
-         q_dst, qj, qk, q_write:     in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from rob
-         vj_in, vk_in, v_write_in:   in STD_LOGIC_VECTOR(31 downto 0); -- data of operands
-         op_in:                      in STD_LOGIC_VECTOR(2 downto 0);
-         cdb_q:                      in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
-         cdb_data:                   in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
-         q_dst_out, op_out:          out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
-         vj_out, vk_out, v_write_out:out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
-         op_sent:                    out STD_LOGIC;
-         memtoreg_out, memwrite_out: out STD_LOGIC;
-         counter:                    buffer UNSIGNED(2 downto 0));
+       branch_in, zerosrc_in:        in STD_LOGIC;
+       start_speculative:            in STD_LOGIC;
+       branch_end, branch_result:    in STD_LOGIC;
+       pcbranch_in:                  in STD_LOGIC_VECTOR(31 downto 0);
+       memtoreg_in, memwrite_in:     in STD_LOGIC;
+       q_dst, qj, qk, q_write:       in STD_LOGIC_VECTOR(2 downto 0);  -- tags: these datas are coming from register status table
+       vj_in, vk_in, v_write_in:     in STD_LOGIC_VECTOR(31 downto 0); -- these datas are coming from register file
+       op_in:                        in STD_LOGIC_VECTOR(2 downto 0);
+       cdb_q:                        in STD_LOGIC_VECTOR(2 downto 0);  -- common data bus signals
+       cdb_data:                     in STD_LOGIC_VECTOR(31 downto 0); -- common data bus signals
+       finish_speculative:           out STD_LOGIC;
+       q_dst_out, op_out:            out STD_LOGIC_VECTOR(2 downto 0); -- these datas are going to ALU
+       vj_out, vk_out, v_write_out:  out STD_LOGIC_VECTOR(31 downto 0); -- these datas are going to ALU
+       op_sent:                      out STD_LOGIC;
+       memtoreg_out, memwrite_out:   out STD_LOGIC;
+       branch_out, zerosrc_out:      out STD_LOGIC;
+       pcbranch_out:                 out STD_LOGIC_VECTOR(31 downto 0);
+       counter:                      buffer UNSIGNED(2 downto 0));
   end component;
   component alu
     port(a, b:       in  STD_LOGIC_VECTOR(31 downto 0);
@@ -82,16 +96,23 @@ architecture struct of datapath is
   signal signimm, unsignimm, imm, immsh: STD_LOGIC_VECTOR(31 downto 0);
   signal srcb, srca, vk_in: STD_LOGIC_VECTOR(31 downto 0);
   signal alucontrol: STD_LOGIC_VECTOR(2 downto 0);
-  signal memtoreg_out: STD_LOGIC;
+  signal memtoreg_out, zerosrc_out, branch_out: STD_LOGIC;
+  signal pcbranch_out: STD_LOGIC_VECTOR(31 downto 0);
+  signal s_branch_taken: STD_LOGIC;
 begin
+  branch_taken <= s_branch_taken;
+
   -- next PC logic
   pcjump <= pcplus4(31 downto 28) & instr(25 downto 0) & "00";
+  s_branch_taken <= branch_out and (zero xor zerosrc_out);
+  finish_speculative <= branch_out;
+
   pcreg: flopr generic map(32) port map(clk, reset, pcnext, pc);
   pcadd1: adder port map(pc, X"00000004", pcplus4); --since we're reading three instruction per cycle
   immsht: sl2 port map(imm, immsh);
   pcadd2: adder port map(pcplus4, immsh, pcbranch);
-  pcbrmux: mux2 generic map(32) port map(pcplus4, pcbranch,
-                                         pcsrc, pcnextbr);
+  pcbrmux: mux2 generic map(32) port map(pcplus4, pcbranch_out,
+                                         s_branch_taken, pcnextbr);
   pcmux: mux2 generic map(32) port map(pcnextbr, pcjump, jump, pcnext);
 
   wrmux: mux2 generic map(5) port map(instr(20 downto 16),
@@ -108,9 +129,10 @@ begin
   srcbmux: mux2 generic map(32) port map(vk, imm, alusrc,
                                          vk_in);
 
-  rs: reservation_station generic map(2) port map(clk, reset, new_item, memtoreg, memwrite, q_dst, qj, qk, q_write,
-                                                  vj, vk_in, writedata, op, cdb_q, cdb_data, q_dst_out, alucontrol, srca,
-                                                  srcb, v_write_out, op_sent, memtoreg_out, memwrite_out, rs_counter);
+  rs: reservation_station generic map(3) port map(clk, reset, new_item, branch, zerosrc, start_speculative, branch_end, branch_result, pcbranch, memtoreg, memwrite, q_dst, qj, qk, q_write,
+                                                  vj, vk_in, writedata, op, cdb_q, cdb_data, open, q_dst_out, alucontrol, srca,
+                                                  srcb, v_write_out, op_sent, memtoreg_out, memwrite_out, branch_out, zerosrc_out,
+                                                  pcbranch_out, rs_counter);
 
   -- ALU logic
   mainalu: alu port map(srca, srcb, alucontrol, aluout, zero);
