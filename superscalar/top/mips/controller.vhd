@@ -6,8 +6,9 @@ entity controller is -- single cycle control decoder
        memtoreg, memwrite: out STD_LOGIC;
        pcsrc, alusrc:      out STD_LOGIC;
        regdst, regwrite:   out STD_LOGIC;
-       jump:               out STD_LOGIC;
+       jump, branch:       out STD_LOGIC;
        alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
+       zerosrc:            out STD_LOGIC;
        immsrc:             out STD_LOGIC);
 end;
 
@@ -29,18 +30,20 @@ architecture struct of controller is
          alucontrol: out STD_LOGIC_VECTOR(2 downto 0));
   end component;
   signal aluop:  STD_LOGIC_VECTOR(1 downto 0);
-  signal branch: STD_LOGIC;
-  signal zerosrc: STD_LOGIC;
+  signal s_branch: STD_LOGIC;
+  signal s_zerosrc: STD_LOGIC;
   signal mux_zero: STD_LOGIC;
 
 begin
-  md: maindec port map(op, memtoreg, memwrite, branch,
-                       alusrc, regdst, regwrite, jump, aluop, zerosrc, immsrc);
+  md: maindec port map(op, memtoreg, memwrite, s_branch,
+                       alusrc, regdst, regwrite, jump, aluop, s_zerosrc, immsrc);
   ad: aludec port map(funct, aluop, alucontrol);
 
 
   -- basicamente, um mux para poder implementar o bne - branch on not equal
-  mux_zero <= zero when zerosrc = '0' else not zero;
+  mux_zero <= zero when s_zerosrc = '0' else not zero;
 
-  pcsrc <= branch and mux_zero;
+  pcsrc <= s_branch and mux_zero;
+  branch <= s_branch;
+  zerosrc <= s_zerosrc;
 end;

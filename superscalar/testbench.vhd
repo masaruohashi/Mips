@@ -1,5 +1,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all; use IEEE.NUMERIC_STD_UNSIGNED.all;
+use IEEE.NUMERIC_STD.all;
 
 entity testbench is
 end;
@@ -33,9 +34,8 @@ begin
     wait;
   end process;
 
-  -- check that 0xffff7f02 gets written to address 0x54(=84)  at end of program
   process (clk) begin
-    if (clk'event and clk = '0' and pc = x"18") then
+    if (clk'event and clk = '0' and pc = x"50") then
       report "NO ERRORS: Simulation succeeded" severity failure;
     end if;
   end process;
